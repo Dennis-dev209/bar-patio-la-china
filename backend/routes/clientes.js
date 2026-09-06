@@ -7,9 +7,9 @@ const { authenticateToken, logAudit } = require('../middleware/auth');
 // GET /api/clientes
 // Obtener todos los remeseros con resumen
 // ============================================
-router.get('/', authenticateToken, (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
     try {
-        const result = db.query(`
+        const result = await db.query(`
             SELECT 
                 r.id,
                 r.nombre,
@@ -40,12 +40,12 @@ router.get('/', authenticateToken, (req, res) => {
 // GET /api/clientes/:id
 // Obtener un remesero por ID con detalles
 // ============================================
-router.get('/:id', authenticateToken, (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
         // Obtener remesero
-        const remeseroResult = db.query(
+        const remeseroResult = await db.query(
             'SELECT * FROM remeseros WHERE id = ?',
             [id]
         );
@@ -57,7 +57,7 @@ router.get('/:id', authenticateToken, (req, res) => {
         const remesero = remeseroResult.rows[0];
 
         // Obtener estadísticas
-        const statsResult = db.query(`
+        const statsResult = await db.query(`
             SELECT 
                 COUNT(DISTINCT o.id) as total_ordenantes,
                 COUNT(rem.id) as total_remesas,
@@ -71,7 +71,7 @@ router.get('/:id', authenticateToken, (req, res) => {
         `, [id]);
 
         // Obtener ordenantes recientes
-        const ordenantesResult = db.query(`
+        const ordenantesResult = await db.query(`
             SELECT o.id, o.nombre, o.telefono, o.pais_origen,
                    COUNT(rem.id) as total_remesas,
                    COALESCE(SUM(rem.importe_cup), 0) as monto_total
@@ -99,7 +99,7 @@ router.get('/:id', authenticateToken, (req, res) => {
 // POST /api/clientes
 // Crear nuevo remesero
 // ============================================
-router.post('/', authenticateToken, (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
     try {
         const { nombre, telefono, descripcion } = req.body;
 
@@ -109,17 +109,17 @@ router.post('/', authenticateToken, (req, res) => {
         }
 
         // Crear remesero
-        db.query(
+        await db.query(
             `INSERT INTO remeseros (nombre, telefono, descripcion) 
              VALUES (?, ?, ?)`,
             [nombre, telefono || null, descripcion || null]
         );
 
         // Obtener el remesero creado
-        const nuevoRemesero = db.query(
+        const nuevoRemesero = (await db.query(
             'SELECT * FROM remeseros WHERE nombre = ? ORDER BY id DESC LIMIT 1',
             [nombre]
-        ).rows[0];
+        )).rows[0];
 
         // Registrar auditoría
         logAudit(db, req.user.id, 'crear', 'remeseros', nuevoRemesero.id, null, nuevoRemesero, req.ip);
@@ -139,20 +139,20 @@ router.post('/', authenticateToken, (req, res) => {
 // PUT /api/clientes/:id
 // Actualizar remesero
 // ============================================
-router.put('/:id', authenticateToken, (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre, telefono, descripcion, activo } = req.body;
 
         // Obtener datos anteriores para auditoría
-        const anteriorResult = db.query('SELECT * FROM remeseros WHERE id = ?', [id]);
+        const anteriorResult = await db.query('SELECT * FROM remeseros WHERE id = ?', [id]);
         if (anteriorResult.rows.length === 0) {
             return res.status(404).json({ error: 'Cliente no encontrado' });
         }
         const datosAnteriores = anteriorResult.rows[0];
 
         // Actualizar
-        db.query(
+        await db.query(
             `UPDATE remeseros 
              SET nombre = COALESCE(?, nombre),
                  telefono = COALESCE(?, telefono),
@@ -163,7 +163,7 @@ router.put('/:id', authenticateToken, (req, res) => {
         );
 
         // Obtener el remesero actualizado
-        const remeseroActualizado = db.query('SELECT * FROM remeseros WHERE id = ?', [id]).rows[0];
+        const remeseroActualizado = (await db.query('SELECT * FROM remeseros WHERE id = ?', [id])).rows[0];
 
         // Registrar auditoría
         logAudit(db, req.user.id, 'editar', 'remeseros', id, datosAnteriores, remeseroActualizado, req.ip);
@@ -183,21 +183,21 @@ router.put('/:id', authenticateToken, (req, res) => {
 // DELETE /api/clientes/:id
 // Eliminar remesero (soft delete)
 // ============================================
-router.delete('/:id', authenticateToken, (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
         // Obtener datos antes de eliminar
-        const anteriorResult = db.query('SELECT * FROM remeseros WHERE id = ?', [id]);
+        const anteriorResult = await db.query('SELECT * FROM remeseros WHERE id = ?', [id]);
         if (anteriorResult.rows.length === 0) {
             return res.status(404).json({ error: 'Cliente no encontrado' });
         }
 
         // Soft delete (marcar como inactivo)
-        db.query('UPDATE remeseros SET activo = 0 WHERE id = ?', [id]);
+        await db.query('UPDATE remeseros SET activo = 0 WHERE id = ?', [id]);
 
         // También desactivar sus ordenantes
-        db.query('UPDATE ordenantes SET activo = 0 WHERE remesero_id = ?', [id]);
+        await db.query('UPDATE ordenantes SET activo = 0 WHERE remesero_id = ?', [id]);
 
         // Registrar auditoría
         logAudit(db, req.user.id, 'eliminar', 'remeseros', id, anteriorResult.rows[0], null, req.ip);
@@ -214,17 +214,17 @@ router.delete('/:id', authenticateToken, (req, res) => {
 // PUT /api/clientes/:id/restaurar
 // Restaurar remesero inactivo
 // ============================================
-router.put('/:id/restaurar', authenticateToken, (req, res) => {
+router.put('/:id/restaurar', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
-        db.query(
+        await db.query(
             'UPDATE remeseros SET activo = 1 WHERE id = ?',
             [id]
         );
 
         // Obtener el remesero restaurado
-        const result = db.query('SELECT * FROM remeseros WHERE id = ?', [id]);
+        const result = await db.query('SELECT * FROM remeseros WHERE id = ?', [id]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Cliente no encontrado' });

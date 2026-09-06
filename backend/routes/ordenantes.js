@@ -7,11 +7,11 @@ const { authenticateToken, logAudit } = require('../middleware/auth');
 // GET /api/ordenantes/remesero/:remeseroId
 // Obtener ordenantes de un remesero específico
 // ============================================
-router.get('/remesero/:remeseroId', authenticateToken, (req, res) => {
+router.get('/remesero/:remeseroId', authenticateToken, async (req, res) => {
     try {
         const { remeseroId } = req.params;
 
-        const result = db.query(`
+        const result = await db.query(`
             SELECT 
                 o.id,
                 o.nombre,
@@ -30,7 +30,7 @@ router.get('/remesero/:remeseroId', authenticateToken, (req, res) => {
         `, [remeseroId]);
 
         // Obtener info del remesero
-        const remeseroResult = db.query(
+        const remeseroResult = await db.query(
             'SELECT id, nombre FROM remeseros WHERE id = ?',
             [remeseroId]
         );
@@ -50,11 +50,11 @@ router.get('/remesero/:remeseroId', authenticateToken, (req, res) => {
 // GET /api/ordenantes/:id/detalles
 // Obtener ordenante con todos sus depósitos
 // ============================================
-router.get('/:id/detalles', authenticateToken, (req, res) => {
+router.get('/:id/detalles', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
-        const ordenanteResult = db.query(`
+        const ordenanteResult = await db.query(`
             SELECT o.*, r.nombre as remesero_nombre
             FROM ordenantes o
             JOIN remeseros r ON o.remesero_id = r.id
@@ -67,7 +67,7 @@ router.get('/:id/detalles', authenticateToken, (req, res) => {
 
         const ordenante = ordenanteResult.rows[0];
 
-        const depositosResult = db.query(`
+        const depositosResult = await db.query(`
             SELECT 
                 rem.*,
                 u.nombre as confirmado_por_nombre
@@ -77,7 +77,7 @@ router.get('/:id/detalles', authenticateToken, (req, res) => {
             ORDER BY rem.fecha_deposito DESC, rem.created_at DESC
         `, [id]);
 
-        const statsResult = db.query(`
+        const statsResult = await db.query(`
             SELECT 
                 COUNT(*) as total_depositos,
                 COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe_cup ELSE 0 END), 0) as monto_pendiente,
@@ -103,11 +103,11 @@ router.get('/:id/detalles', authenticateToken, (req, res) => {
 // GET /api/ordenantes/:id
 // Obtener un ordenante por ID
 // ============================================
-router.get('/:id', authenticateToken, (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
-        const ordenanteResult = db.query(`
+        const ordenanteResult = await db.query(`
             SELECT o.*, r.nombre as remesero_nombre
             FROM ordenantes o
             JOIN remeseros r ON o.remesero_id = r.id
@@ -130,7 +130,7 @@ router.get('/:id', authenticateToken, (req, res) => {
 // POST /api/ordenantes
 // Crear nuevo ordenante con primer depósito
 // ============================================
-router.post('/', authenticateToken, (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
     try {
         const { 
             remesero_id, 
@@ -151,7 +151,7 @@ router.post('/', authenticateToken, (req, res) => {
             return res.status(400).json({ error: 'Fecha, moneda e importe son requeridos para el primer depósito' });
         }
 
-        const remeseroResult = db.query(
+        const remeseroResult = await db.query(
             'SELECT id FROM remeseros WHERE id = ? AND activo = 1',
             [remesero_id]
         );
@@ -161,22 +161,22 @@ router.post('/', authenticateToken, (req, res) => {
         }
 
         // Crear ordenante
-        db.query(
+        await db.query(
             'INSERT INTO ordenantes (remesero_id, nombre) VALUES (?, ?)',
             [remesero_id, nombre]
         );
 
-        const nuevoOrdenante = db.query(
+        const nuevoOrdenante = (await db.query(
             'SELECT * FROM ordenantes WHERE nombre = ? AND remesero_id = ? ORDER BY id DESC LIMIT 1',
             [nombre, remesero_id]
-        ).rows[0];
+        )).rows[0];
 
         // Crear primer depósito
         const tasa = parseFloat(tasa_cambio) || 1.0;
         const importeNum = parseFloat(importe);
         const importeCUP = importeNum * tasa;
 
-        db.query(
+        await db.query(
             `INSERT INTO remesas (ordenante_id, remesero_id, fecha_deposito, moneda, importe, tasa_cambio, importe_cup, referencia, cantidad_deposito) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [nuevoOrdenante.id, remesero_id, fecha_deposito, moneda, importeNum, tasa, importeCUP, referencia || null, cantidad_deposito || null]
@@ -199,7 +199,7 @@ router.post('/', authenticateToken, (req, res) => {
 // PUT /api/ordenantes/:id
 // Renombrar ordenante
 // ============================================
-router.put('/:id', authenticateToken, (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre } = req.body;
@@ -208,14 +208,14 @@ router.put('/:id', authenticateToken, (req, res) => {
             return res.status(400).json({ error: 'El nombre es requerido' });
         }
 
-        const anteriorResult = db.query('SELECT * FROM ordenantes WHERE id = ?', [id]);
+        const anteriorResult = await db.query('SELECT * FROM ordenantes WHERE id = ?', [id]);
         if (anteriorResult.rows.length === 0) {
             return res.status(404).json({ error: 'Ordenante no encontrado' });
         }
 
-        db.query('UPDATE ordenantes SET nombre = ? WHERE id = ?', [nombre, id]);
+        await db.query('UPDATE ordenantes SET nombre = ? WHERE id = ?', [nombre, id]);
 
-        const ordenanteActualizado = db.query('SELECT * FROM ordenantes WHERE id = ?', [id]).rows[0];
+        const ordenanteActualizado = (await db.query('SELECT * FROM ordenantes WHERE id = ?', [id])).rows[0];
 
         logAudit(db, req.user.id, 'renombrar', 'ordenantes', id, anteriorResult.rows[0], ordenanteActualizado, req.ip);
 
@@ -234,16 +234,16 @@ router.put('/:id', authenticateToken, (req, res) => {
 // DELETE /api/ordenantes/:id
 // Eliminar ordenante (soft delete)
 // ============================================
-router.delete('/:id', authenticateToken, (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
-        const anteriorResult = db.query('SELECT * FROM ordenantes WHERE id = ?', [id]);
+        const anteriorResult = await db.query('SELECT * FROM ordenantes WHERE id = ?', [id]);
         if (anteriorResult.rows.length === 0) {
             return res.status(404).json({ error: 'Ordenante no encontrado' });
         }
 
-        db.query('UPDATE ordenantes SET activo = 0 WHERE id = ?', [id]);
+        await db.query('UPDATE ordenantes SET activo = 0 WHERE id = ?', [id]);
 
         logAudit(db, req.user.id, 'eliminar', 'ordenantes', id, anteriorResult.rows[0], null, req.ip);
 

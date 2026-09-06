@@ -11,7 +11,7 @@ require('dotenv').config();
 // POST /api/auth/login
 // Iniciar sesión
 // ============================================
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -21,7 +21,7 @@ router.post('/login', (req, res) => {
         }
 
         // Buscar usuario
-        const result = db.query(
+        const result = await db.query(
             'SELECT id, nombre, email, password_hash, rol, activo FROM usuarios WHERE email = ?',
             [email]
         );
@@ -79,7 +79,7 @@ router.post('/login', (req, res) => {
 // POST /api/auth/register
 // Registrar nuevo usuario (solo admin)
 // ============================================
-router.post('/register', authenticateToken, (req, res) => {
+router.post('/register', authenticateToken, async (req, res) => {
     try {
         // Verificar que sea admin
         if (req.user.rol !== 'admin') {
@@ -94,7 +94,7 @@ router.post('/register', authenticateToken, (req, res) => {
         }
 
         // Verificar si el email ya existe
-        const existingUser = db.query(
+        const existingUser = await db.query(
             'SELECT id FROM usuarios WHERE email = ?',
             [email]
         );
@@ -108,17 +108,17 @@ router.post('/register', authenticateToken, (req, res) => {
         const password_hash = bcrypt.hashSync(password, salt);
 
         // Crear usuario
-        const result = db.query(
+        const result = await db.query(
             `INSERT INTO usuarios (nombre, email, password_hash, rol) 
              VALUES (?, ?, ?, ?)`,
             [nombre, email, password_hash, rol || 'empleado']
         );
 
         // Obtener el usuario creado
-        const nuevoUsuario = db.query(
+        const nuevoUsuario = (await db.query(
             'SELECT id, nombre, email, rol, activo, created_at FROM usuarios WHERE email = ?',
             [email]
-        ).rows[0];
+        )).rows[0];
 
         // Registrar auditoría
         logAudit(db, req.user.id, 'crear', 'usuarios', nuevoUsuario.id, null, nuevoUsuario, req.ip);
@@ -138,7 +138,7 @@ router.post('/register', authenticateToken, (req, res) => {
 // POST /api/auth/forgot-password
 // Solicitar recuperación de contraseña
 // ============================================
-router.post('/forgot-password', (req, res) => {
+router.post('/forgot-password', async (req, res) => {
     try {
         const { email } = req.body;
 
@@ -147,7 +147,7 @@ router.post('/forgot-password', (req, res) => {
         }
 
         // Buscar usuario
-        const result = db.query(
+        const result = await db.query(
             'SELECT id, email FROM usuarios WHERE email = ? AND activo = 1',
             [email]
         );
@@ -164,7 +164,7 @@ router.post('/forgot-password', (req, res) => {
         const expiraEn = new Date(Date.now() + 3600000).toISOString(); // 1 hora
 
         // Guardar token
-        db.query(
+        await db.query(
             `INSERT INTO reset_tokens (usuario_id, token, expira_en) 
              VALUES (?, ?, ?)`,
             [usuario.id, token, expiraEn]
@@ -190,7 +190,7 @@ router.post('/forgot-password', (req, res) => {
 // POST /api/auth/reset-password
 // Restablecer contraseña con token
 // ============================================
-router.post('/reset-password', (req, res) => {
+router.post('/reset-password', async (req, res) => {
     try {
         const { token, newPassword } = req.body;
 
@@ -199,7 +199,7 @@ router.post('/reset-password', (req, res) => {
         }
 
         // Buscar token válido
-        const result = db.query(
+        const result = await db.query(
             `SELECT id, usuario_id, expira_en FROM reset_tokens 
              WHERE token = ? AND used = 0 AND expira_en > datetime('now')`,
             [token]
@@ -216,13 +216,13 @@ router.post('/reset-password', (req, res) => {
         const password_hash = bcrypt.hashSync(newPassword, salt);
 
         // Actualizar contraseña
-        db.query(
+        await db.query(
             'UPDATE usuarios SET password_hash = ? WHERE id = ?',
             [password_hash, resetToken.usuario_id]
         );
 
         // Marcar token como usado
-        db.query(
+        await db.query(
             'UPDATE reset_tokens SET used = 1 WHERE id = ?',
             [resetToken.id]
         );
@@ -242,9 +242,9 @@ router.post('/reset-password', (req, res) => {
 // GET /api/auth/me
 // Obtener usuario actual
 // ============================================
-router.get('/me', authenticateToken, (req, res) => {
+router.get('/me', authenticateToken, async (req, res) => {
     try {
-        const result = db.query(
+        const result = await db.query(
             'SELECT id, nombre, email, rol, activo FROM usuarios WHERE id = ?',
             [req.user.id]
         );
@@ -265,7 +265,7 @@ router.get('/me', authenticateToken, (req, res) => {
 // PUT /api/auth/change-password
 // Cambiar contraseña (usuario autenticado)
 // ============================================
-router.put('/change-password', authenticateToken, (req, res) => {
+router.put('/change-password', authenticateToken, async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
 
@@ -274,7 +274,7 @@ router.put('/change-password', authenticateToken, (req, res) => {
         }
 
         // Obtener contraseña actual
-        const result = db.query(
+        const result = await db.query(
             'SELECT password_hash FROM usuarios WHERE id = ?',
             [req.user.id]
         );
@@ -294,7 +294,7 @@ router.put('/change-password', authenticateToken, (req, res) => {
         const password_hash = bcrypt.hashSync(newPassword, salt);
 
         // Actualizar
-        db.query(
+        await db.query(
             'UPDATE usuarios SET password_hash = ? WHERE id = ?',
             [password_hash, req.user.id]
         );

@@ -7,7 +7,7 @@ const { authenticateToken, logAudit } = require('../middleware/auth');
 // GET /api/remesas
 // Obtener todas las remesas con filtros
 // ============================================
-router.get('/', authenticateToken, (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
     try {
         const { remesero_id, ordenante_id, estado, fecha_inicio, fecha_fin, page = 1, limit = 50 } = req.query;
 
@@ -52,7 +52,7 @@ router.get('/', authenticateToken, (req, res) => {
         }
 
         // Contar total
-        const countResult = db.query(
+        const countResult = await db.query(
             `SELECT COUNT(*) as total FROM (${query})`,
             params
         );
@@ -64,7 +64,7 @@ router.get('/', authenticateToken, (req, res) => {
         query += ` LIMIT ? OFFSET ?`;
         params.push(limit, offset);
 
-        const result = db.query(query, params);
+        const result = await db.query(query, params);
 
         res.json({
             remesas: result.rows,
@@ -86,11 +86,11 @@ router.get('/', authenticateToken, (req, res) => {
 // GET /api/remesas/:id
 // Obtener una remesa por ID
 // ============================================
-router.get('/:id', authenticateToken, (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
-        const result = db.query(`
+        const result = await db.query(`
             SELECT 
                 rem.*,
                 o.nombre as ordenante_nombre,
@@ -121,7 +121,7 @@ router.get('/:id', authenticateToken, (req, res) => {
 // POST /api/remesas
 // Crear nueva remesa (depósito)
 // ============================================
-router.post('/', authenticateToken, (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
     try {
         const { 
             ordenante_id, 
@@ -154,7 +154,7 @@ router.post('/', authenticateToken, (req, res) => {
         const tasa = parseFloat(tasa_cambio) || 1.0;
 
         // Verificar que el ordenante exista
-        const ordenanteResult = db.query(
+        const ordenanteResult = await db.query(
             'SELECT id, nombre FROM ordenantes WHERE id = ? AND activo = 1',
             [ordenante_id]
         );
@@ -167,7 +167,7 @@ router.post('/', authenticateToken, (req, res) => {
         const importeCUP = parseFloat(importe) * tasa;
 
         // Crear remesa
-        db.query(
+        await db.query(
             `INSERT INTO remesas (
                 ordenante_id, remesero_id, fecha_deposito, moneda, 
                 importe, tasa_cambio, importe_cup, referencia, cantidad_deposito
@@ -179,10 +179,10 @@ router.post('/', authenticateToken, (req, res) => {
         );
 
         // Obtener la remesa creada
-        const nuevaRemesa = db.query(
+        const nuevaRemesa = (await db.query(
             'SELECT * FROM remesas WHERE ordenante_id = ? AND fecha_deposito = ? ORDER BY id DESC LIMIT 1',
             [ordenante_id, fecha_deposito]
-        ).rows[0];
+        )).rows[0];
 
         // Registrar auditoría
         logAudit(db, req.user.id, 'crear', 'remesas', nuevaRemesa.id, null, nuevaRemesa, req.ip);
@@ -202,12 +202,12 @@ router.post('/', authenticateToken, (req, res) => {
 // PUT /api/remesas/:id/confirmar
 // Confirmar una remesa (conciliación)
 // ============================================
-router.put('/:id/confirmar', authenticateToken, (req, res) => {
+router.put('/:id/confirmar', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
         // Obtener remesa actual
-        const anteriorResult = db.query('SELECT * FROM remesas WHERE id = ?', [id]);
+        const anteriorResult = await db.query('SELECT * FROM remesas WHERE id = ?', [id]);
         if (anteriorResult.rows.length === 0) {
             return res.status(404).json({ error: 'Remesa no encontrada' });
         }
@@ -220,7 +220,7 @@ router.put('/:id/confirmar', authenticateToken, (req, res) => {
         }
 
         // Confirmar
-        db.query(
+        await db.query(
             `UPDATE remesas 
              SET estado = 'confirmado', 
                  confirmado_por = ?, 
@@ -230,7 +230,7 @@ router.put('/:id/confirmar', authenticateToken, (req, res) => {
         );
 
         // Obtener la remesa actualizada
-        const remesaConfirmada = db.query('SELECT * FROM remesas WHERE id = ?', [id]).rows[0];
+        const remesaConfirmada = (await db.query('SELECT * FROM remesas WHERE id = ?', [id])).rows[0];
 
         // Registrar auditoría
         logAudit(db, req.user.id, 'confirmar', 'remesas', id, remesa, remesaConfirmada, req.ip);
@@ -250,12 +250,12 @@ router.put('/:id/confirmar', authenticateToken, (req, res) => {
 // PUT /api/remesas/:id/desconfirmar
 // Desconfirmar una remesa (volver a pendiente)
 // ============================================
-router.put('/:id/desconfirmar', authenticateToken, (req, res) => {
+router.put('/:id/desconfirmar', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
         // Obtener remesa actual
-        const anteriorResult = db.query('SELECT * FROM remesas WHERE id = ?', [id]);
+        const anteriorResult = await db.query('SELECT * FROM remesas WHERE id = ?', [id]);
         if (anteriorResult.rows.length === 0) {
             return res.status(404).json({ error: 'Remesa no encontrada' });
         }
@@ -268,7 +268,7 @@ router.put('/:id/desconfirmar', authenticateToken, (req, res) => {
         }
 
         // Desconfirmar
-        db.query(
+        await db.query(
             `UPDATE remesas 
              SET estado = 'pendiente', 
                  confirmado_por = NULL, 
@@ -278,7 +278,7 @@ router.put('/:id/desconfirmar', authenticateToken, (req, res) => {
         );
 
         // Obtener la remesa actualizada
-        const remesaActualizada = db.query('SELECT * FROM remesas WHERE id = ?', [id]).rows[0];
+        const remesaActualizada = (await db.query('SELECT * FROM remesas WHERE id = ?', [id])).rows[0];
 
         // Registrar auditoría
         logAudit(db, req.user.id, 'desconfirmar', 'remesas', id, remesa, remesaActualizada, req.ip);
@@ -298,13 +298,13 @@ router.put('/:id/desconfirmar', authenticateToken, (req, res) => {
 // PUT /api/remesas/:id
 // Actualizar remesa
 // ============================================
-router.put('/:id', authenticateToken, (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { fecha_deposito, moneda, importe, tasa_cambio, referencia, cantidad_deposito } = req.body;
 
         // Obtener datos anteriores
-        const anteriorResult = db.query('SELECT * FROM remesas WHERE id = ?', [id]);
+        const anteriorResult = await db.query('SELECT * FROM remesas WHERE id = ?', [id]);
         if (anteriorResult.rows.length === 0) {
             return res.status(404).json({ error: 'Remesa no encontrada' });
         }
@@ -326,7 +326,7 @@ router.put('/:id', authenticateToken, (req, res) => {
         }
 
         // Actualizar
-        db.query(
+        await db.query(
             `UPDATE remesas 
              SET fecha_deposito = COALESCE(?, fecha_deposito),
                  moneda = COALESCE(?, moneda),
@@ -340,7 +340,7 @@ router.put('/:id', authenticateToken, (req, res) => {
         );
 
         // Obtener la remesa actualizada
-        const remesaActualizada = db.query('SELECT * FROM remesas WHERE id = ?', [id]).rows[0];
+        const remesaActualizada = (await db.query('SELECT * FROM remesas WHERE id = ?', [id])).rows[0];
 
         // Registrar auditoría
         logAudit(db, req.user.id, 'editar', 'remesas', id, anteriorResult.rows[0], remesaActualizada, req.ip);
@@ -360,16 +360,16 @@ router.put('/:id', authenticateToken, (req, res) => {
 // DELETE /api/remesas/:id
 // Eliminar remesa
 // ============================================
-router.delete('/:id', authenticateToken, (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
-        const anteriorResult = db.query('SELECT * FROM remesas WHERE id = ?', [id]);
+        const anteriorResult = await db.query('SELECT * FROM remesas WHERE id = ?', [id]);
         if (anteriorResult.rows.length === 0) {
             return res.status(404).json({ error: 'Remesa no encontrada' });
         }
 
-        db.query('DELETE FROM remesas WHERE id = ?', [id]);
+        await db.query('DELETE FROM remesas WHERE id = ?', [id]);
 
         // Registrar auditoría
         logAudit(db, req.user.id, 'eliminar', 'remesas', id, anteriorResult.rows[0], null, req.ip);
@@ -386,9 +386,9 @@ router.delete('/:id', authenticateToken, (req, res) => {
 // GET /api/remesas/pendientes/count
 // Contar remesas pendientes
 // ============================================
-router.get('/pendientes/count', authenticateToken, (req, res) => {
+router.get('/pendientes/count', authenticateToken, async (req, res) => {
     try {
-        const result = db.query(
+        const result = await db.query(
             `SELECT COUNT(*) as total, COALESCE(SUM(importe_cup), 0) as monto_total
              FROM remesas WHERE estado = 'pendiente'`
         );

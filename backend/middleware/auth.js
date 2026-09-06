@@ -28,9 +28,9 @@ const requireAdmin = (req, res, next) => {
 };
 
 // Middleware para registrar auditoría
-const logAudit = (db, usuarioId, accion, tabla, registroId, datosAnteriores = null, datosNuevos = null, ipAddress = null) => {
+const logAudit = async (db, usuarioId, accion, tabla, registroId, datosAnteriores = null, datosNuevos = null, ipAddress = null) => {
     try {
-        db.query(
+        await db.query(
             `INSERT INTO auditoria (usuario_id, accion, tabla, registro_id, datos_anteriores, datos_nuevos, ip_address)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [usuarioId, accion, tabla, registroId, 

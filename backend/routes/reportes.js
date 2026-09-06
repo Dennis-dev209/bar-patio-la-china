@@ -7,9 +7,9 @@ const { authenticateToken } = require('../middleware/auth');
 // GET /api/reportes/resumen
 // Resumen general del sistema
 // ============================================
-router.get('/resumen', authenticateToken, (req, res) => {
+router.get('/resumen', authenticateToken, async (req, res) => {
     try {
-        const result = db.query(`
+        const result = await db.query(`
             SELECT 
                 COUNT(DISTINCT r.id) as total_remeseros,
                 COUNT(DISTINCT o.id) as total_ordenantes,
@@ -37,7 +37,7 @@ router.get('/resumen', authenticateToken, (req, res) => {
 // GET /api/reportes/por-periodo
 // Reporte por período (diario, mensual, anual)
 // ============================================
-router.get('/por-periodo', authenticateToken, (req, res) => {
+router.get('/por-periodo', authenticateToken, async (req, res) => {
     try {
         const { tipo = 'mensual', fecha_inicio, fecha_fin } = req.query;
 
@@ -87,7 +87,7 @@ router.get('/por-periodo', authenticateToken, (req, res) => {
 
         query += ` GROUP BY ${groupBy} ORDER BY periodo DESC`;
 
-        const result = db.query(query, params);
+        const result = await db.query(query, params);
 
         res.json({ reporte: result.rows });
 
@@ -101,7 +101,7 @@ router.get('/por-periodo', authenticateToken, (req, res) => {
 // GET /api/reportes/por-remesero
 // Reporte por remesero
 // ============================================
-router.get('/por-remesero', authenticateToken, (req, res) => {
+router.get('/por-remesero', authenticateToken, async (req, res) => {
     try {
         const { fecha_inicio, fecha_fin } = req.query;
 
@@ -137,7 +137,7 @@ router.get('/por-remesero', authenticateToken, (req, res) => {
 
         query += ` GROUP BY r.id, r.nombre ORDER BY monto_total DESC`;
 
-        const result = db.query(query, params);
+        const result = await db.query(query, params);
 
         res.json({ reporte: result.rows });
 
@@ -151,9 +151,9 @@ router.get('/por-remesero', authenticateToken, (req, res) => {
 // GET /api/reportes/pendientes
 // Lista de remesas pendientes
 // ============================================
-router.get('/pendientes', authenticateToken, (req, res) => {
+router.get('/pendientes', authenticateToken, async (req, res) => {
     try {
-        const result = db.query(`
+        const result = await db.query(`
             SELECT 
                 rem.*,
                 o.nombre as ordenante_nombre,
@@ -166,7 +166,7 @@ router.get('/pendientes', authenticateToken, (req, res) => {
         `);
 
         // Calcular totales
-        const totales = db.query(`
+        const totales = await db.query(`
             SELECT 
                 COUNT(*) as cantidad,
                 COALESCE(SUM(importe_cup), 0) as monto_total
@@ -189,13 +189,13 @@ router.get('/pendientes', authenticateToken, (req, res) => {
 // GET /api/reportes/historial-remesero/:id
 // Historial completo de un remesero
 // ============================================
-router.get('/historial-remesero/:id', authenticateToken, (req, res) => {
+router.get('/historial-remesero/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { fecha_inicio, fecha_fin } = req.query;
 
         // Info del remesero
-        const remeseroResult = db.query(
+        const remeseroResult = await db.query(
             'SELECT * FROM remeseros WHERE id = ?',
             [id]
         );
@@ -226,10 +226,10 @@ router.get('/historial-remesero/:id', authenticateToken, (req, res) => {
 
         query += ` ORDER BY rem.fecha_deposito DESC`;
 
-        const remesasResult = db.query(query, params);
+        const remesasResult = await db.query(query, params);
 
         // Estadísticas
-        const statsResult = db.query(`
+        const statsResult = await db.query(`
             SELECT 
                 COUNT(*) as total,
                 COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe_cup ELSE 0 END), 0) as pendiente,
@@ -255,12 +255,12 @@ router.get('/historial-remesero/:id', authenticateToken, (req, res) => {
 // GET /api/reportes/historial-ordenante/:id
 // Historial completo de un ordenante
 // ============================================
-router.get('/historial-ordenante/:id', authenticateToken, (req, res) => {
+router.get('/historial-ordenante/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
         // Info del ordenante
-        const ordenanteResult = db.query(`
+        const ordenanteResult = await db.query(`
             SELECT o.*, r.nombre as remesero_nombre
             FROM ordenantes o
             JOIN remeseros r ON o.remesero_id = r.id
@@ -271,13 +271,13 @@ router.get('/historial-ordenante/:id', authenticateToken, (req, res) => {
             return res.status(404).json({ error: 'Ordenante no encontrado' });
         }
 
-        const remesasResult = db.query(`
+        const remesasResult = await db.query(`
             SELECT * FROM remesas
             WHERE ordenante_id = ?
             ORDER BY fecha_deposito DESC
         `, [id]);
 
-        const statsResult = db.query(`
+        const statsResult = await db.query(`
             SELECT 
                 COUNT(*) as total,
                 COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe_cup ELSE 0 END), 0) as pendiente,

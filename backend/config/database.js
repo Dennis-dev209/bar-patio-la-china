@@ -56,6 +56,65 @@ const initDatabase = async () => {
 };
 
 // ============================================
+// EJECUTAR MÚLTIPLES STATEMENTS (para Turso)
+// ============================================
+
+// Dividir SQL en statements individuales respetando triggers
+function splitSQL(sql) {
+    const statements = [];
+    let current = '';
+    let inTrigger = false;
+    let triggerDepth = 0;
+    
+    const lines = sql.split('\n');
+    
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        // Detectar inicio de trigger
+        if (trimmedLine.toUpperCase().startsWith('CREATE TRIGGER')) {
+            inTrigger = true;
+            triggerDepth = 0;
+        }
+        
+        current += line + '\n';
+        
+        // Contar BEGIN/END en triggers
+        if (inTrigger) {
+            if (trimmedLine.toUpperCase() === 'BEGIN') triggerDepth++;
+            if (trimmedLine.toUpperCase() === 'END;') {
+                triggerDepth--;
+                if (triggerDepth <= 0) {
+                    statements.push(current.trim());
+                    current = '';
+                    inTrigger = false;
+                }
+            }
+        } else if (trimmedLine.endsWith(';') && !trimmedLine.startsWith('--')) {
+            statements.push(current.trim());
+            current = '';
+        }
+    }
+    
+    if (current.trim().length > 0) {
+        statements.push(current.trim());
+    }
+    
+    return statements.filter(s => s.length > 0 && !s.startsWith('--'));
+}
+
+async function executeMultipleStatements(text) {
+    const statements = splitSQL(text);
+    for (const stmt of statements) {
+        const cleaned = stmt.replace(/;$/, '').trim();
+        if (cleaned.length > 0) {
+            await tursoClient.execute({ sql: cleaned, args: [] });
+        }
+    }
+    return { rows: [], rowCount: 0 };
+}
+
+// ============================================
 // WRAPPER DE BASE DE DATOS (compatibilidad)
 // ============================================
 
@@ -65,18 +124,33 @@ const createDbWrapper = () => {
         return {
             query: async (text, params = []) => {
                 try {
-                    // Turso usa ? para parámetros, igual que SQLite
-                    const result = await tursoClient.execute({
-                        sql: text,
-                        args: params.map(p => p === undefined ? null : p)
-                    });
+                    // Si es un solo statement con parámetros, ejecutar directo
+                    const trimmedSql = text.trim().toUpperCase();
+                    const isSingleStatement = trimmedSql.startsWith('SELECT') || 
+                        trimmedSql.startsWith('INSERT') || 
+                        trimmedSql.startsWith('UPDATE') || 
+                        trimmedSql.startsWith('DELETE') ||
+                        trimmedSql.startsWith('WITH');
                     
-                    // Convertir formato Turso a formato { rows, rowCount }
-                    return {
-                        rows: result.rows,
-                        rowCount: result.rows.length
-                    };
+                    if (isSingleStatement || (params && params.length > 0)) {
+                        const result = await tursoClient.execute({
+                            sql: text,
+                            args: params.map(p => p === undefined ? null : p)
+                        });
+                        return {
+                            rows: result.rows,
+                            rowCount: result.rows.length
+                        };
+                    }
+                    
+                    // Para statements múltiples (schema), usar executeMultiple
+                    await tursoClient.executeMultiple(text);
+                    return { rows: [], rowCount: 0 };
                 } catch (error) {
+                    // Si executeMultiple no existe, dividir manualmente
+                    if (error.message && error.message.includes('executeMultiple')) {
+                        return await executeMultipleStatements(text);
+                    }
                     console.error('Error en query (Turso):', error);
                     throw error;
                 }

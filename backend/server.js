@@ -55,18 +55,18 @@ const startServer = async () => {
         const schemaPath = path.join(__dirname, 'db/schema.sql');
         const schema = fs.readFileSync(schemaPath, 'utf8');
         
-        db.query(schema);
+        await db.query(schema);
         console.log('✅ Tablas creadas/verificadas');
         
         // Verificar si hay usuarios, si no crear admin
-        const userCheck = db.query("SELECT COUNT(*) as count FROM usuarios");
+        const userCheck = await db.query("SELECT COUNT(*) as count FROM usuarios");
         if (userCheck.rows[0].count === 0) {
             console.log('📝 Creando usuario admin por defecto...');
             const bcrypt = require('bcryptjs');
             const salt = bcrypt.genSaltSync(10);
             const passwordHash = bcrypt.hashSync('admin123', salt);
             
-            db.query(
+            await db.query(
                 `INSERT INTO usuarios (nombre, email, password_hash, rol) VALUES (?, ?, ?, ?)`,
                 ['Administrador', 'admin@patiolachina.com', passwordHash, 'admin']
             );
