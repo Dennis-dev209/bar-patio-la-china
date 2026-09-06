@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clientes - Bar Patio La China</title>
+    <link rel="stylesheet" href="/css/variables.css?v=3">
+    <link rel="stylesheet" href="/css/base.css?v=3">
+    <link rel="stylesheet" href="/css/components.css?v=3">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">B</div>
+                <div class="sidebar-brand">
+                    <div class="logo-text">Patio La China</div>
+                    <div class="logo-subtitle">Sistema de Remesas</div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Menú</div>
+                    <a href="/inicio" class="nav-item">
+                        <span class="nav-item-icon"><i class="fas fa-home"></i></span>
+                        <span class="nav-text">Inicio</span>
+                    </a>
+                    <a href="/clientes" class="nav-item active">
+                        <span class="nav-item-icon"><i class="fas fa-users"></i></span>
+                        <span class="nav-text">Clientes</span>
+                    </a>
+                    <a href="/ordenantes" class="nav-item">
+                        <span class="nav-item-icon"><i class="fas fa-user-friends"></i></span>
+                        <span class="nav-text">Ordenantes</span>
+                    </a>
+                    <a href="/conciliacion" class="nav-item">
+                        <span class="nav-item-icon"><i class="fas fa-handshake"></i></span>
+                        <span class="nav-text">Conciliación</span>
+                        <span class="nav-badge" id="pendingBadge">0</span>
+                    </a>
+                    <a href="/resumen" class="nav-item">
+                        <span class="nav-item-icon"><i class="fas fa-chart-bar"></i></span>
+                        <span class="nav-text">Resumen</span>
+                    </a>
+                </div>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <span class="theme-toggle-icon"><i class="fas fa-moon"></i></span>
+                    <span class="theme-toggle-text">Modo Oscuro</span>
+                </button>
+            </div>
+        </aside>
+        
+        <!-- Contenido principal -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <button class="menu-toggle" onclick="toggleSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 class="page-title">Clientes</h2>
+                </div>
+                <div class="header-right">
+                    <div class="search-box">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="search-input" placeholder="Buscar cliente..." id="searchInput" onkeyup="filterClientes()">
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-ghost btn-icon" onclick="toggleDropdown(this)">
+                            <i class="fas fa-user-circle"></i>
+                        </button>
+                        <div class="dropdown-menu">
+                            <div class="dropdown-item" id="userName">
+                                <i class="fas fa-user"></i>
+                                <span>Cargando...</span>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <button class="dropdown-item" onclick="changePassword()">
+                                <i class="fas fa-key"></i>
+                                <span>Cambiar Contraseña</span>
+                            </button>
+                            <button class="dropdown-item danger" onclick="logout()">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span>Cerrar Sesión</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Contenido de la página -->
+            <div class="page-content">
+                <div class="page-header">
+                    <p class="page-subtitle">Gestiona tus clientes (remeseros) y sus ordenantes</p>
+                </div>
+                
+                <!-- Lista de clientes -->
+                <div class="clientes-grid" id="clientesGrid">
+                    <div class="text-center text-muted p-xl">
+                        <i class="fas fa-spinner fa-spin"></i> Cargando clientes...
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Botón flotante para agregar -->
+    <button class="btn-fab" onclick="openAddClienteModal()" data-tooltip="Agregar Cliente">
+        <i class="fas fa-plus"></i>
+    </button>
+    
+    <!-- Modal Agregar/Editar Cliente -->
+    <div class="modal-backdrop" id="clienteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="clienteModalTitle">Agregar Cliente</h3>
+                <button class="modal-close" onclick="closeClienteModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="clienteForm">
+                    <input type="hidden" id="clienteId">
+                    
+                    <div class="form-group">
+                        <label for="clienteNombre" class="form-label required">Nombre</label>
+                        <input type="text" id="clienteNombre" class="form-input" placeholder="Nombre del cliente" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="clienteTelefono" class="form-label">Teléfono</label>
+                        <input type="tel" id="clienteTelefono" class="form-input" placeholder="+53 5555 0000">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="clienteDescripcion" class="form-label">Descripción</label>
+                        <textarea id="clienteDescripcion" class="form-textarea" placeholder="Notas sobre el cliente..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeClienteModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveCliente()">
+                    <i class="fas fa-save"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Ver Detalles -->
+    <div class="modal-backdrop" id="clienteDetailsModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 class="modal-title" id="detailsModalTitle">Detalles del Cliente</h3>
+                <button class="modal-close" onclick="closeDetailsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="detailsModalBody">
+                <!-- Contenido dinámico -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDetailsModal()">Cerrar</button>
+                <button class="btn btn-primary" id="detailsEditBtn" onclick="editFromDetails()">
+                    <i class="fas fa-edit"></i> Editar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast container -->
+    <div id="toastContainer" class="toast-container"></div>
+    
+    <script src="/js/theme.js?v=3"></script>
+    <script src="/js/api.js?v=3"></script>
+    <script src="/js/clientes.js?v=3"></script>
+</body>
+</html>

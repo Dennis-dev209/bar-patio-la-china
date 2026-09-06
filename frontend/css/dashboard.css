@@ -1,0 +1,77 @@
+/* ============================================
+   ESTILOS DEL DASHBOARD
+   Bar Patio La China
+   ============================================ */
+
+/* ============================================
+   ACCIONES RÁPIDAS
+   ============================================ */
+
+.quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.quick-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-xl);
+    background: var(--bg-tertiary);
+    border: var(--border-width) solid var(--border-color);
+    border-radius: var(--radius-lg);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all var(--transition-base);
+}
+
+.quick-action-btn:hover {
+    background: var(--accent);
+    color: var(--color-white);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-red);
+}
+
+.quick-action-btn i {
+    font-size: var(--text-3xl);
+}
+
+.quick-action-btn span {
+    font-weight: var(--font-medium);
+}
+
+/* ============================================
+   GRÁFICOS (placeholder)
+   ============================================ */
+
+.chart-container {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+    .quick-actions {
+        grid-template-columns: 1fr;
+    }
+    
+    .quick-action-btn {
+        flex-direction: row;
+        padding: var(--spacing-md);
+    }
+    
+    .quick-action-btn i {
+        font-size: var(--text-xl);
+    }
+}

@@ -1,0 +1,258 @@
+const express = require('express');
+const router = express.Router();
+const { db } = require('../config/database');
+const { authenticateToken, logAudit } = require('../middleware/auth');
+
+// ============================================
+// GET /api/ordenantes/remesero/:remeseroId
+// Obtener ordenantes de un remesero específico
+// ============================================
+router.get('/remesero/:remeseroId', authenticateToken, (req, res) => {
+    try {
+        const { remeseroId } = req.params;
+
+        const result = db.query(`
+            SELECT 
+                o.id,
+                o.nombre,
+                o.activo,
+                o.created_at,
+                COUNT(rem.id) as total_remesas,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe_cup ELSE 0 END), 0) as monto_pendiente,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe_cup ELSE 0 END), 0) as monto_confirmado,
+                COALESCE(SUM(rem.importe_cup), 0) as monto_total,
+                (SELECT rem2.moneda FROM remesas rem2 WHERE rem2.ordenante_id = o.id ORDER BY rem2.created_at DESC LIMIT 1) as ultima_moneda
+            FROM ordenantes o
+            LEFT JOIN remesas rem ON o.id = rem.ordenante_id
+            WHERE o.remesero_id = ? AND o.activo = 1
+            GROUP BY o.id, o.nombre, o.activo, o.created_at
+            ORDER BY o.nombre ASC
+        `, [remeseroId]);
+
+        // Obtener info del remesero
+        const remeseroResult = db.query(
+            'SELECT id, nombre FROM remeseros WHERE id = ?',
+            [remeseroId]
+        );
+
+        res.json({
+            remesero: remeseroResult.rows[0] || null,
+            ordenantes: result.rows
+        });
+
+    } catch (error) {
+        console.error('Error al obtener ordenantes:', error);
+        res.status(500).json({ error: 'Error al obtener ordenantes' });
+    }
+});
+
+// ============================================
+// GET /api/ordenantes/:id/detalles
+// Obtener ordenante con todos sus depósitos
+// ============================================
+router.get('/:id/detalles', authenticateToken, (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const ordenanteResult = db.query(`
+            SELECT o.*, r.nombre as remesero_nombre
+            FROM ordenantes o
+            JOIN remeseros r ON o.remesero_id = r.id
+            WHERE o.id = ?
+        `, [id]);
+
+        if (ordenanteResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Ordenante no encontrado' });
+        }
+
+        const ordenante = ordenanteResult.rows[0];
+
+        const depositosResult = db.query(`
+            SELECT 
+                rem.*,
+                u.nombre as confirmado_por_nombre
+            FROM remesas rem
+            LEFT JOIN usuarios u ON rem.confirmado_por = u.id
+            WHERE rem.ordenante_id = ?
+            ORDER BY rem.fecha_deposito DESC, rem.created_at DESC
+        `, [id]);
+
+        const statsResult = db.query(`
+            SELECT 
+                COUNT(*) as total_depositos,
+                COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe_cup ELSE 0 END), 0) as monto_pendiente,
+                COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN importe_cup ELSE 0 END), 0) as monto_confirmado,
+                COALESCE(SUM(importe_cup), 0) as monto_total
+            FROM remesas
+            WHERE ordenante_id = ?
+        `, [id]);
+
+        res.json({
+            ordenante,
+            depositos: depositosResult.rows,
+            estadisticas: statsResult.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error al obtener detalles del ordenante:', error);
+        res.status(500).json({ error: 'Error al obtener detalles del ordenante' });
+    }
+});
+
+// ============================================
+// GET /api/ordenantes/:id
+// Obtener un ordenante por ID
+// ============================================
+router.get('/:id', authenticateToken, (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const ordenanteResult = db.query(`
+            SELECT o.*, r.nombre as remesero_nombre
+            FROM ordenantes o
+            JOIN remeseros r ON o.remesero_id = r.id
+            WHERE o.id = ?
+        `, [id]);
+
+        if (ordenanteResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Ordenante no encontrado' });
+        }
+
+        res.json({ ordenante: ordenanteResult.rows[0] });
+
+    } catch (error) {
+        console.error('Error al obtener ordenante:', error);
+        res.status(500).json({ error: 'Error al obtener ordenante' });
+    }
+});
+
+// ============================================
+// POST /api/ordenantes
+// Crear nuevo ordenante con primer depósito
+// ============================================
+router.post('/', authenticateToken, (req, res) => {
+    try {
+        const { 
+            remesero_id, 
+            nombre,
+            fecha_deposito,
+            moneda,
+            importe,
+            tasa_cambio,
+            referencia,
+            cantidad_deposito
+        } = req.body;
+
+        if (!remesero_id || !nombre) {
+            return res.status(400).json({ error: 'Remesero y nombre son requeridos' });
+        }
+
+        if (!fecha_deposito || !moneda || !importe) {
+            return res.status(400).json({ error: 'Fecha, moneda e importe son requeridos para el primer depósito' });
+        }
+
+        const remeseroResult = db.query(
+            'SELECT id FROM remeseros WHERE id = ? AND activo = 1',
+            [remesero_id]
+        );
+
+        if (remeseroResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Remesero no encontrado' });
+        }
+
+        // Crear ordenante
+        db.query(
+            'INSERT INTO ordenantes (remesero_id, nombre) VALUES (?, ?)',
+            [remesero_id, nombre]
+        );
+
+        const nuevoOrdenante = db.query(
+            'SELECT * FROM ordenantes WHERE nombre = ? AND remesero_id = ? ORDER BY id DESC LIMIT 1',
+            [nombre, remesero_id]
+        ).rows[0];
+
+        // Crear primer depósito
+        const tasa = parseFloat(tasa_cambio) || 1.0;
+        const importeNum = parseFloat(importe);
+        const importeCUP = importeNum * tasa;
+
+        db.query(
+            `INSERT INTO remesas (ordenante_id, remesero_id, fecha_deposito, moneda, importe, tasa_cambio, importe_cup, referencia, cantidad_deposito) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [nuevoOrdenante.id, remesero_id, fecha_deposito, moneda, importeNum, tasa, importeCUP, referencia || null, cantidad_deposito || null]
+        );
+
+        logAudit(db, req.user.id, 'crear', 'ordenantes', nuevoOrdenante.id, null, nuevoOrdenante, req.ip);
+
+        res.status(201).json({
+            message: 'Ordenante creado exitosamente',
+            ordenante: nuevoOrdenante
+        });
+
+    } catch (error) {
+        console.error('Error al crear ordenante:', error);
+        res.status(500).json({ error: 'Error al crear ordenante' });
+    }
+});
+
+// ============================================
+// PUT /api/ordenantes/:id
+// Renombrar ordenante
+// ============================================
+router.put('/:id', authenticateToken, (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nombre } = req.body;
+
+        if (!nombre) {
+            return res.status(400).json({ error: 'El nombre es requerido' });
+        }
+
+        const anteriorResult = db.query('SELECT * FROM ordenantes WHERE id = ?', [id]);
+        if (anteriorResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Ordenante no encontrado' });
+        }
+
+        db.query('UPDATE ordenantes SET nombre = ? WHERE id = ?', [nombre, id]);
+
+        const ordenanteActualizado = db.query('SELECT * FROM ordenantes WHERE id = ?', [id]).rows[0];
+
+        logAudit(db, req.user.id, 'renombrar', 'ordenantes', id, anteriorResult.rows[0], ordenanteActualizado, req.ip);
+
+        res.json({
+            message: 'Ordenante renombrado exitosamente',
+            ordenante: ordenanteActualizado
+        });
+
+    } catch (error) {
+        console.error('Error al renombrar ordenante:', error);
+        res.status(500).json({ error: 'Error al renombrar ordenante' });
+    }
+});
+
+// ============================================
+// DELETE /api/ordenantes/:id
+// Eliminar ordenante (soft delete)
+// ============================================
+router.delete('/:id', authenticateToken, (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const anteriorResult = db.query('SELECT * FROM ordenantes WHERE id = ?', [id]);
+        if (anteriorResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Ordenante no encontrado' });
+        }
+
+        db.query('UPDATE ordenantes SET activo = 0 WHERE id = ?', [id]);
+
+        logAudit(db, req.user.id, 'eliminar', 'ordenantes', id, anteriorResult.rows[0], null, req.ip);
+
+        res.json({ message: 'Ordenante eliminado exitosamente' });
+
+    } catch (error) {
+        console.error('Error al eliminar ordenante:', error);
+        res.status(500).json({ error: 'Error al eliminar ordenante' });
+    }
+});
+
+module.exports = router;

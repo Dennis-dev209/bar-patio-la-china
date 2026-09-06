@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conciliación - Bar Patio La China</title>
+    <link rel="stylesheet" href="/css/variables.css?v=3">
+    <link rel="stylesheet" href="/css/base.css?v=3">
+    <link rel="stylesheet" href="/css/components.css?v=3">
+    <link rel="stylesheet" href="/css/remesas.css?v=3">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">B</div>
+                <div class="sidebar-brand">
+                    <div class="logo-text">Patio La China</div>
+                    <div class="logo-subtitle">Sistema de Remesas</div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Menú</div>
+                    <a href="/inicio" class="nav-item">
+                        <span class="nav-item-icon"><i class="fas fa-home"></i></span>
+                        <span class="nav-text">Inicio</span>
+                    </a>
+                    <a href="/clientes" class="nav-item">
+                        <span class="nav-item-icon"><i class="fas fa-users"></i></span>
+                        <span class="nav-text">Clientes</span>
+                    </a>
+                    <a href="/ordenantes" class="nav-item">
+                        <span class="nav-item-icon"><i class="fas fa-user-friends"></i></span>
+                        <span class="nav-text">Ordenantes</span>
+                    </a>
+                    <a href="/conciliacion" class="nav-item active">
+                        <span class="nav-item-icon"><i class="fas fa-handshake"></i></span>
+                        <span class="nav-text">Conciliación</span>
+                        <span class="nav-badge" id="pendingBadge">0</span>
+                    </a>
+                    <a href="/resumen" class="nav-item">
+                        <span class="nav-item-icon"><i class="fas fa-chart-bar"></i></span>
+                        <span class="nav-text">Resumen</span>
+                    </a>
+                </div>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <span class="theme-toggle-icon"><i class="fas fa-moon"></i></span>
+                    <span class="theme-toggle-text">Modo Oscuro</span>
+                </button>
+            </div>
+        </aside>
+        
+        <!-- Contenido principal -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <button class="menu-toggle" onclick="toggleSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 class="page-title">Conciliación</h2>
+                </div>
+                <div class="header-right">
+                    <div class="dropdown">
+                        <button class="btn btn-ghost btn-icon" onclick="toggleDropdown(this)">
+                            <i class="fas fa-user-circle"></i>
+                        </button>
+                        <div class="dropdown-menu">
+                            <div class="dropdown-item" id="userName">
+                                <i class="fas fa-user"></i>
+                                <span>Cargando...</span>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <button class="dropdown-item" onclick="changePassword()">
+                                <i class="fas fa-key"></i>
+                                <span>Cambiar Contraseña</span>
+                            </button>
+                            <button class="dropdown-item danger" onclick="logout()">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span>Cerrar Sesión</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Contenido de la página -->
+            <div class="page-content">
+                <!-- Filtros -->
+                <div class="filters-bar">
+                    <div class="filter-group">
+                        <label class="filter-label">Estado:</label>
+                        <select class="filter-select" id="filterEstado" onchange="applyFilters()">
+                            <option value="">Todos</option>
+                            <option value="pendiente">Pendientes</option>
+                            <option value="confirmado">Confirmados</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Desde:</label>
+                        <input type="date" class="filter-input" id="filterFechaInicio" onchange="applyFilters()">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Hasta:</label>
+                        <input type="date" class="filter-input" id="filterFechaFin" onchange="applyFilters()">
+                    </div>
+                    <button class="btn btn-sm btn-secondary" onclick="clearFilters()">
+                        <i class="fas fa-times"></i> Limpiar
+                    </button>
+                </div>
+                
+                <!-- Vista de clientes -->
+                <div id="vistaClientes" class="vista-actual">
+                    <h3 class="section-title">Selecciona un Cliente</h3>
+                    <div class="clientes-list" id="clientesList">
+                        <div class="text-center text-muted p-xl">
+                            <i class="fas fa-spinner fa-spin"></i> Cargando clientes...
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Vista de ordenantes -->
+                <div id="vistaOrdenantes" class="vista-actual hidden">
+                    <div class="vista-header">
+                        <button class="btn btn-ghost" onclick="showVista('clientes')">
+                            <i class="fas fa-arrow-left"></i> Volver a Clientes
+                        </button>
+                        <h3 class="section-title" id="ordenantesTitle">Ordenantes</h3>
+                    </div>
+                    <div class="ordenantes-list" id="ordenantesList">
+                        <!-- Contenido dinámico -->
+                    </div>
+                </div>
+                
+                <!-- Vista de depósitos -->
+                <div id="vistaDepositos" class="vista-actual hidden">
+                    <div class="vista-header">
+                        <button class="btn btn-ghost" onclick="showVista('ordenantes')">
+                            <i class="fas fa-arrow-left"></i> Volver a Ordenantes
+                        </button>
+                        <h3 class="section-title" id="depositosTitle">Depósitos</h3>
+                    </div>
+                    <div class="depositos-list" id="depositosList">
+                        <!-- Contenido dinámico -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Botón flotante para agregar -->
+    <button class="btn-fab" onclick="openAddDepositoModal()" data-tooltip="Nuevo Depósito">
+        <i class="fas fa-plus"></i>
+    </button>
+    
+    <!-- Modal Agregar Depósito -->
+    <div class="modal-backdrop" id="depositoModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="depositoModalTitle">Nuevo Depósito</h3>
+                <button class="modal-close" onclick="closeDepositoModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="depositoForm">
+                    <input type="hidden" id="depositoId">
+                    <input type="hidden" id="depositoOrdenanteId">
+                    <input type="hidden" id="depositoRemeseroId">
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="depositoMoneda" class="form-label required">Moneda</label>
+                            <select id="depositoMoneda" class="form-select" required onchange="calculateImporteCUP()">
+                                <option value="USD">USD - Dólar Americano</option>
+                                <option value="EUR">EUR - Euro</option>
+                                <option value="MXN">MXN - Peso Mexicano</option>
+                                <option value="COP">COP - Peso Colombiano</option>
+                                <option value="ARS">ARS - Peso Argentino</option>
+                                <option value="CUP">CUP - Peso Cubano</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="depositoImporte" class="form-label required">Importe</label>
+                            <input type="number" id="depositoImporte" class="form-input" step="0.01" min="0" required oninput="calculateImporteCUP()">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="depositoTasa" class="form-label required">Tasa de Cambio</label>
+                            <input type="number" id="depositoTasa" class="form-input" step="0.0001" min="0" value="120" required oninput="calculateImporteCUP()">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Importe CUP</label>
+                            <div class="form-input readonly" id="depositoImporteCUP">0.00 CUP</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="depositoFecha" class="form-label required">Fecha de Depósito</label>
+                            <input type="date" id="depositoFecha" class="form-input" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="depositoReferencia" class="form-label">Referencia</label>
+                            <input type="text" id="depositoReferencia" class="form-input" placeholder="REF-001">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="depositoCantidad" class="form-label">Cantidad de Depósito</label>
+                        <input type="number" id="depositoCantidad" class="form-input" step="0.01" min="0">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDepositoModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveDeposito()">
+                    <i class="fas fa-save"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast container -->
+    <div id="toastContainer" class="toast-container"></div>
+    
+    <script src="/js/theme.js?v=3"></script>
+    <script src="/js/api.js?v=3"></script>
+    <script src="/js/remesas.js?v=3"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+# Dependencias
+node_modules/
+
+# Archivos de entorno
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build
+dist/
+build/
+
+# Temporales
+temp/
+tmp/
+
+# Base de datos local (se usa Turso en producción)
+data/database.sqlite
+
+# Logs del servidor
+server_output.log
+server.log

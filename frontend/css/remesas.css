@@ -1,0 +1,250 @@
+/* ============================================
+   ESTILOS DE REMESAS
+   Bar Patio La China
+   ============================================ */
+
+/* ============================================
+   VISTAS
+   ============================================ */
+
+.vista-actual {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.vista-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+}
+
+.section-title {
+    font-size: var(--text-2xl);
+    margin: 0;
+}
+
+/* ============================================
+   LISTA DE CLIENTES (VISTA REMESAS)
+   ============================================ */
+
+.clientes-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: var(--spacing-md);
+}
+
+/* ============================================
+   LISTA DE ORDENANTES
+   ============================================ */
+
+.ordenantes-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.ordenante-card {
+    background: var(--bg-card);
+    border: var(--border-width) solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.ordenante-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent);
+}
+
+.ordenante-info {
+    flex: 1;
+}
+
+.ordenante-nombre {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    margin-bottom: var(--spacing-xs);
+}
+
+.ordenante-pais {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.ordenante-stats {
+    text-align: right;
+}
+
+.ordenante-monto {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--accent);
+}
+
+.ordenante-depositos {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+.ordenante-status {
+    flex-shrink: 0;
+}
+
+/* ============================================
+   LISTA DE DEPÓSITOS
+   ============================================ */
+
+.depositos-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.deposito-card {
+    background: var(--bg-card);
+    border: var(--border-width) solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    transition: all var(--transition-base);
+}
+
+.deposito-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.deposito-card.confirmado {
+    border-left: 4px solid var(--color-success);
+}
+
+.deposito-card.pendiente {
+    border-left: 4px solid var(--color-warning);
+}
+
+.deposito-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.deposito-fecha {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.deposito-fecha i {
+    margin-right: var(--spacing-xs);
+}
+
+.deposito-body {
+    margin-bottom: var(--spacing-md);
+}
+
+.deposito-monto {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.monto-moneda {
+    background: var(--bg-tertiary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+}
+
+.monto-valor {
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+}
+
+.deposito-monto i {
+    color: var(--text-muted);
+}
+
+.monto-cup {
+    font-size: var(--text-lg);
+    color: var(--accent);
+    font-weight: var(--font-semibold);
+}
+
+.deposito-referencia {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin-top: var(--spacing-sm);
+}
+
+.deposito-referencia i {
+    margin-right: var(--spacing-xs);
+}
+
+.deposito-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: var(--spacing-md);
+    border-top: var(--border-width) solid var(--border-color);
+}
+
+/* ============================================
+   FORMULARIO
+   ============================================ */
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+}
+
+.form-input.readonly {
+    background: var(--bg-tertiary);
+    cursor: not-allowed;
+    font-weight: var(--font-bold);
+    color: var(--accent);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+    .clientes-list,
+    .ordenantes-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .ordenante-card {
+        flex-wrap: wrap;
+    }
+    
+    .ordenante-stats {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        margin-top: var(--spacing-md);
+        padding-top: var(--spacing-md);
+        border-top: var(--border-width) solid var(--border-color);
+        text-align: left;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .deposito-monto {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

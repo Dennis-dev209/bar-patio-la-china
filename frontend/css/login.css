@@ -1,0 +1,340 @@
+/* ============================================
+   ESTILOS DEL LOGIN
+   Bar Patio La China
+   ============================================ */
+
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-primary);
+}
+
+/* ============================================
+   FONDO DECORATIVO
+   ============================================ */
+
+.login-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 0;
+    overflow: hidden;
+}
+
+.bg-pattern {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(220, 38, 38, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(220, 38, 38, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(30, 30, 30, 0.5) 0%, transparent 100%);
+}
+
+[data-theme="light"] .bg-pattern {
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(220, 38, 38, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(220, 38, 38, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(249, 250, 251, 0.8) 0%, transparent 100%);
+}
+
+/* ============================================
+   TARJETA DE LOGIN
+   ============================================ */
+
+.login-card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    padding: var(--spacing-2xl);
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    border: var(--border-width) solid var(--border-color);
+    margin: var(--spacing-md);
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+
+.login-header {
+    text-align: center;
+    margin-bottom: var(--spacing-2xl);
+}
+
+.login-logo {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto var(--spacing-lg);
+    background: linear-gradient(135deg, var(--color-red), var(--color-red-dark));
+    border-radius: var(--radius-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-red);
+}
+
+.logo-icon {
+    font-family: var(--font-display);
+    font-size: 3rem;
+    color: var(--color-white);
+    letter-spacing: 0.05em;
+}
+
+.login-title {
+    font-family: var(--font-display);
+    font-size: var(--text-4xl);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+    letter-spacing: 0.05em;
+}
+
+.login-subtitle {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+/* ============================================
+   FORMULARIO
+   ============================================ */
+
+.login-form {
+    margin-top: var(--spacing-lg);
+}
+
+.form-title {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    margin-bottom: var(--spacing-sm);
+}
+
+.form-description {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-lg);
+}
+
+.input-icon {
+    position: relative;
+}
+
+.input-icon i {
+    position: absolute;
+    left: var(--spacing-md);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+}
+
+.input-icon .form-input {
+    padding-left: 44px;
+}
+
+.toggle-password {
+    position: absolute;
+    right: var(--spacing-md);
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+}
+
+.toggle-password:hover {
+    color: var(--text-primary);
+}
+
+/* ============================================
+   OPCIONES DEL FORMULARIO
+   ============================================ */
+
+.form-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.checkbox-label input {
+    display: none;
+}
+
+.checkmark {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.checkbox-label input:checked + .checkmark {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.checkbox-label input:checked + .checkmark::after {
+    content: '✓';
+    color: var(--color-white);
+    font-size: var(--text-xs);
+}
+
+.forgot-link {
+    font-size: var(--text-sm);
+    color: var(--accent);
+}
+
+.forgot-link:hover {
+    text-decoration: underline;
+}
+
+/* ============================================
+   BOTÓN
+   ============================================ */
+
+.btn-block {
+    width: 100%;
+    padding: var(--spacing-md);
+    font-size: var(--text-base);
+}
+
+.btn-text,
+.btn-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* ============================================
+   MENSAJES
+   ============================================ */
+
+.back-link {
+    margin-bottom: var(--spacing-lg);
+}
+
+.back-link a {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.back-link a:hover {
+    color: var(--text-primary);
+}
+
+.error-message {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--color-error-light);
+    color: #991B1B;
+    border-radius: var(--radius-md);
+    margin-top: var(--spacing-lg);
+    font-size: var(--text-sm);
+}
+
+[data-theme="dark"] .error-message {
+    background: rgba(220, 38, 38, 0.2);
+    color: var(--color-error);
+}
+
+.success-message {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--color-success-light);
+    color: #065F46;
+    border-radius: var(--radius-md);
+    margin-top: var(--spacing-lg);
+    font-size: var(--text-sm);
+}
+
+[data-theme="dark"] .success-message {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--color-success);
+}
+
+/* ============================================
+   TOGGLE TEMA (LOGIN)
+   ============================================ */
+
+.theme-toggle-login {
+    position: fixed;
+    top: var(--spacing-lg);
+    right: var(--spacing-lg);
+    width: 48px;
+    height: 48px;
+    background: var(--bg-card);
+    border: var(--border-width) solid var(--border-color);
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: var(--text-lg);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    z-index: var(--z-sticky);
+}
+
+.theme-toggle-login:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    transform: rotate(15deg);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 480px) {
+    .login-card {
+        padding: var(--spacing-lg);
+    }
+
+    .login-title {
+        font-size: var(--text-3xl);
+    }
+
+    .form-options {
+        flex-direction: column;
+        gap: var(--spacing-md);
+        align-items: flex-start;
+    }
+
+    .theme-toggle-login {
+        top: var(--spacing-md);
+        right: var(--spacing-md);
+        width: 40px;
+        height: 40px;
+    }
+}
