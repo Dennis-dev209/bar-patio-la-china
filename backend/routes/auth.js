@@ -32,8 +32,8 @@ router.post('/login', async (req, res) => {
 
         const usuario = result.rows[0];
 
-        // Verificar si está activo
-        if (!usuario.activo) {
+        // Verificar si está activo (Turso puede devolver BigInt)
+        if (Number(usuario.activo) === 0) {
             return res.status(403).json({ error: 'Cuenta desactivada' });
         }
 

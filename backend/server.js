@@ -60,7 +60,7 @@ const startServer = async () => {
         
         // Verificar si hay usuarios, si no crear admin
         const userCheck = await db.query("SELECT COUNT(*) as count FROM usuarios");
-        if (userCheck.rows[0].count === 0) {
+        if (Number(userCheck.rows[0].count) === 0) {
             console.log('📝 Creando usuario admin por defecto...');
             const bcrypt = require('bcryptjs');
             const salt = bcrypt.genSaltSync(10);
