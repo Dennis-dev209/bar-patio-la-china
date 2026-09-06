@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
-const { authenticateToken, logAudit } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, logAudit } = require('../middleware/auth');
 
 // ============================================
 // GET /api/clientes
@@ -139,7 +139,7 @@ router.post('/', authenticateToken, async (req, res) => {
 // PUT /api/clientes/:id
 // Actualizar remesero
 // ============================================
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre, telefono, descripcion, activo } = req.body;
@@ -183,7 +183,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // DELETE /api/clientes/:id
 // Eliminar remesero (soft delete)
 // ============================================
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -214,7 +214,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 // PUT /api/clientes/:id/restaurar
 // Restaurar remesero inactivo
 // ============================================
-router.put('/:id/restaurar', authenticateToken, async (req, res) => {
+router.put('/:id/restaurar', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
 

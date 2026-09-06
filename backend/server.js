@@ -21,17 +21,34 @@ app.use(helmet({
 
 // CORS
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' ? true : (process.env.FRONTEND_URL || 'http://localhost:3000'),
+    origin: process.env.NODE_ENV === 'production' 
+        ? (origin, callback) => {
+            const allowed = ['https://bar-patio-la-china.onrender.com'];
+            if (!origin || allowed.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error('No permitido por CORS'));
+            }
+        }
+        : (process.env.FRONTEND_URL || 'http://localhost:3000'),
     credentials: true
 }));
 
-// Rate limiting (prevenir abuso)
+// Rate limiting general (prevenir abuso)
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
     max: 100, // máximo 100 requests por ventana
     message: 'Demasiadas peticiones, intenta de nuevo más tarde'
 });
 app.use('/api/', limiter);
+
+// Rate limiting específico para login (más estricto)
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 5, // máximo 5 intentos de login
+    message: 'Demasiados intentos de login, intenta de nuevo más tarde'
+});
+app.use('/api/auth/login', loginLimiter);
 
 // ============================================
 // MIDDLEWARE DE PARSEO

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
-const { authenticateToken, logAudit } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, logAudit } = require('../middleware/auth');
 
 // ============================================
 // GET /api/ordenantes/remesero/:remeseroId
@@ -199,7 +199,7 @@ router.post('/', authenticateToken, async (req, res) => {
 // PUT /api/ordenantes/:id
 // Renombrar ordenante
 // ============================================
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre } = req.body;
@@ -234,7 +234,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 // DELETE /api/ordenantes/:id
 // Eliminar ordenante (soft delete)
 // ============================================
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
 

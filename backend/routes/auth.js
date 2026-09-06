@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { db } = require('../config/database');
-const { authenticateToken, logAudit } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, logAudit } = require('../middleware/auth');
 require('dotenv').config();
 
 // ============================================
@@ -79,7 +79,7 @@ router.post('/login', async (req, res) => {
 // POST /api/auth/register
 // Registrar nuevo usuario (solo admin)
 // ============================================
-router.post('/register', authenticateToken, async (req, res) => {
+router.post('/register', authenticateToken, requireAdmin, async (req, res) => {
     try {
         // Verificar que sea admin
         if (req.user.rol !== 'admin') {
