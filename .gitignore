@@ -35,3 +35,4 @@ data/database.sqlite
 # Logs del servidor
 server_output.log
 server.log
+audit*.json 
