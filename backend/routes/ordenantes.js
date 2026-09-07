@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
 const { authenticateToken, requireAdmin, logAudit } = require('../middleware/auth');
+const { parseImporte, parseTasa, parseCantidad, isValidDate, parseMoneda, parseId } = require('../middleware/validation');
 
 // ============================================
 // GET /api/ordenantes/remesero/:remeseroId
@@ -151,9 +152,50 @@ router.post('/', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Fecha, moneda e importe son requeridos para el primer depósito' });
         }
 
+        // Validar remesero_id entero
+        const remeseroIdNum = parseId(remesero_id);
+        if (remeseroIdNum === null) {
+            return res.status(400).json({ error: 'Remesero inválido' });
+        }
+
+        // Validar importe del primer depósito (número mayor a 0, rechaza NaN/texto/negativos)
+        const importeNum = parseImporte(importe);
+        if (importeNum === null) {
+            return res.status(400).json({ error: 'El importe debe ser un número mayor a 0' });
+        }
+
+        // Validar fecha real YYYY-MM-DD
+        if (!isValidDate(fecha_deposito)) {
+            return res.status(400).json({ error: 'La fecha de depósito no es válida (YYYY-MM-DD)' });
+        }
+
+        // Validar código de moneda ISO (3 letras)
+        const monedaCode = parseMoneda(moneda);
+        if (monedaCode === null) {
+            return res.status(400).json({ error: 'La moneda no es válida (código de 3 letras)' });
+        }
+
+        // Validar tasa si se proporciona (default 1.0)
+        let tasa = 1.0;
+        if (tasa_cambio !== undefined && tasa_cambio !== null && tasa_cambio !== '') {
+            tasa = parseTasa(tasa_cambio);
+            if (tasa === null) {
+                return res.status(400).json({ error: 'La tasa de cambio debe ser un número mayor a 0' });
+            }
+        }
+
+        // Validar cantidad_deposito si se proporciona
+        let cantidadNum = null;
+        if (cantidad_deposito !== undefined && cantidad_deposito !== null && cantidad_deposito !== '') {
+            cantidadNum = parseCantidad(cantidad_deposito);
+            if (cantidadNum === null) {
+                return res.status(400).json({ error: 'La cantidad de depósito no es válida' });
+            }
+        }
+
         const remeseroResult = await db.query(
             'SELECT id FROM remeseros WHERE id = ? AND activo = 1',
-            [remesero_id]
+            [remeseroIdNum]
         );
 
         if (remeseroResult.rows.length === 0) {
@@ -163,23 +205,21 @@ router.post('/', authenticateToken, async (req, res) => {
         // Crear ordenante
         await db.query(
             'INSERT INTO ordenantes (remesero_id, nombre) VALUES (?, ?)',
-            [remesero_id, nombre]
+            [remeseroIdNum, nombre]
         );
 
         const nuevoOrdenante = (await db.query(
             'SELECT * FROM ordenantes WHERE nombre = ? AND remesero_id = ? ORDER BY id DESC LIMIT 1',
-            [nombre, remesero_id]
+            [nombre, remeseroIdNum]
         )).rows[0];
 
-        // Crear primer depósito
-        const tasa = parseFloat(tasa_cambio) || 1.0;
-        const importeNum = parseFloat(importe);
+        // Crear primer depósito (valores ya validados)
         const importeCUP = importeNum * tasa;
 
         await db.query(
             `INSERT INTO remesas (ordenante_id, remesero_id, fecha_deposito, moneda, importe, tasa_cambio, importe_cup, referencia, cantidad_deposito) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [nuevoOrdenante.id, remesero_id, fecha_deposito, moneda, importeNum, tasa, importeCUP, referencia || null, cantidad_deposito || null]
+            [nuevoOrdenante.id, remeseroIdNum, fecha_deposito, monedaCode, importeNum, tasa, importeCUP, referencia || null, cantidadNum]
         );
 
         logAudit(db, req.user.id, 'crear', 'ordenantes', nuevoOrdenante.id, null, nuevoOrdenante, req.ip);

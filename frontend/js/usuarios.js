@@ -73,11 +73,11 @@ const renderUsuarios = (usuariosList) => {
         <tr>
             <td>
                 <div class="user-cell">
-                    <div class="user-avatar">${getInitials(usuario.nombre)}</div>
-                    <span>${usuario.nombre}</span>
+                    <div class="user-avatar">${escapeHtml(getInitials(usuario.nombre))}</div>
+                    <span>${escapeHtml(usuario.nombre)}</span>
                 </div>
             </td>
-            <td>${usuario.email}</td>
+            <td>${escapeHtml(usuario.email)}</td>
             <td>
                 <span class="role-badge ${usuario.rol}">
                     ${usuario.rol === 'admin' ? 'Administrador' : 'Empleado'}
@@ -99,7 +99,7 @@ const renderUsuarios = (usuariosList) => {
                             <i class="fas fa-user-shield"></i>
                         </button>
                     ` : ''}
-                    <button class="btn btn-sm btn-danger" onclick="deleteUser(${usuario.id}, '${usuario.nombre}')" title="Eliminar">
+                    <button class="btn btn-sm btn-danger" onclick="deleteUser(${usuario.id})" title="Eliminar">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -164,7 +164,9 @@ const changeRole = async (userId, newRole) => {
 // ELIMINAR USUARIO
 // ============================================
 
-const deleteUser = async (userId, userName) => {
+const deleteUser = async (userId) => {
+    const found = usuarios.find(u => u.id === userId);
+    const userName = found ? found.nombre : '';
     const confirmed = await showConfirm(`¿Eliminar al usuario "${userName}"? Esta acción no se puede deshacer.`);
     if (!confirmed) return;
     
@@ -226,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         document.getElementById('userName').innerHTML = `
             <i class="fas fa-user"></i>
-            <span>${user.nombre || 'Usuario'}</span>
+            <span>${escapeHtml(user.nombre) || 'Usuario'}</span>
         `;
         loadUsuarios();
     }

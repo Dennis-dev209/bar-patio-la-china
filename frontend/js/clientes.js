@@ -62,13 +62,13 @@ const renderClientes = (clientes) => {
     grid.innerHTML = clientes.map(cliente => `
         <div class="cliente-card" onclick="viewClienteDetails(${cliente.id})">
             <div class="cliente-avatar">
-                ${getInitials(cliente.nombre)}
+                ${escapeHtml(getInitials(cliente.nombre))}
             </div>
             <div class="cliente-info">
-                <div class="cliente-nombre">${cliente.nombre}</div>
+                <div class="cliente-nombre">${escapeHtml(cliente.nombre)}</div>
                 <div class="cliente-meta">
                     <span class="cliente-telefono">
-                        <i class="fas fa-phone"></i> ${cliente.telefono || 'Sin teléfono'}
+                        <i class="fas fa-phone"></i> ${escapeHtml(cliente.telefono) || 'Sin teléfono'}
                     </span>
                     <span class="cliente-ordenantes">
                         <i class="fas fa-users"></i> ${cliente.total_ordenantes || 0} ordenantes
@@ -101,7 +101,7 @@ const renderClientes = (clientes) => {
                         <i class="fas fa-file-alt"></i> Generar Resumen
                     </button>
                     <div class="dropdown-divider"></div>
-                    <button class="dropdown-item danger" onclick="deleteCliente(${cliente.id}, '${cliente.nombre}')">
+                    <button class="dropdown-item danger" onclick="deleteCliente(${cliente.id})">
                         <i class="fas fa-trash"></i> Eliminar
                     </button>
                 </div>
@@ -209,12 +209,12 @@ const viewClienteDetails = async (id) => {
             <div class="cliente-details">
                 <div class="details-header">
                     <div class="cliente-avatar lg">
-                        ${getInitials(cliente.nombre)}
+                        ${escapeHtml(getInitials(cliente.nombre))}
                     </div>
                     <div class="details-info">
-                        <h4>${cliente.nombre}</h4>
-                        <p>${cliente.telefono || 'Sin teléfono'}</p>
-                        <p>${cliente.descripcion || 'Sin descripción'}</p>
+                        <h4>${escapeHtml(cliente.nombre)}</h4>
+                        <p>${escapeHtml(cliente.telefono) || 'Sin teléfono'}</p>
+                        <p>${escapeHtml(cliente.descripcion) || 'Sin descripción'}</p>
                     </div>
                 </div>
                 
@@ -254,8 +254,8 @@ const viewClienteDetails = async (id) => {
                         ${ordenantes.map(o => `
                             <div class="ordenante-item" onclick="viewOrdenanteDetails(${o.id})">
                                 <div class="ordenante-info">
-                                    <strong>${o.nombre}</strong>
-                                    <span>${o.pais_origen || 'Sin país'}</span>
+                                    <strong>${escapeHtml(o.nombre)}</strong>
+                                    <span>${escapeHtml(o.pais_origen) || 'Sin país'}</span>
                                 </div>
                                 <div class="ordenante-monto">
                                     ${formatCurrency(o.monto_total || 0)}
@@ -299,7 +299,9 @@ const generateResumen = async (id) => {
 // ELIMINAR CLIENTE
 // ============================================
 
-const deleteCliente = async (id, nombre) => {
+const deleteCliente = async (id) => {
+    const found = (typeof allClientes !== 'undefined' ? allClientes : []).find(c => c.id === id);
+    const nombre = found ? found.nombre : '';
     const confirmed = await showConfirm(
         `¿Estás seguro de eliminar a "${nombre}"?\n\nEsta acción desactivará al cliente y todos sus ordenantes.`
     );

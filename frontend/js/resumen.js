@@ -148,7 +148,7 @@ const renderRemeseroTable = (data) => {
     
     tbody.innerHTML = data.map(row => `
         <tr>
-            <td><strong>${row.nombre}</strong></td>
+            <td><strong>${escapeHtml(row.nombre)}</strong></td>
             <td>${row.total_remesas}</td>
             <td>${row.confirmadas}</td>
             <td>${row.pendientes}</td>

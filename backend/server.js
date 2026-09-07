@@ -9,13 +9,34 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Confiar solo en el primer proxy (Render/Cloudflare).
+// Necesario para que req.ip y el rate limiting vean la IP real del cliente.
+// Se usa el valor 1 (un solo salto) y NO true, para que un atacante
+// no pueda falsificar X-Forwarded-For y evadir los límites.
+app.set('trust proxy', 1);
+
 // ============================================
 // MIDDLEWARE DE SEGURIDAD
 // ============================================
 
-// Helmet para headers de seguridad
+// Helmet para headers de seguridad.
+// CSP parcial: el frontend usa manejadores inline (onclick), por lo que
+// script-src debe permitir 'unsafe-inline' (el escapeHtml es la defensa
+// real contra XSS). Este CSP aporta defensa en profundidad: bloquea
+// <object>/<embed>, impide que otras páginas nos embeban y fija base-uri.
 app.use(helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com", "data:"],
+            imgSrc: ["'self'", "data:"],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+            frameAncestors: ["'self'"]
+        }
+    },
     crossOriginEmbedderPolicy: false
 }));
 

@@ -52,6 +52,17 @@ const setLoading = (btn, loading) => {
     }
 };
 
+// Escapar HTML (anti-XSS). En login no se carga api.js, por eso se duplica aquí.
+const escapeHtml = (value) => {
+    if (value === undefined || value === null) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+};
+
 // Toast notification
 const showToast = (type, title, message) => {
     const container = document.getElementById('toastContainer');
@@ -69,8 +80,8 @@ const showToast = (type, title, message) => {
     toast.innerHTML = `
         <i class="${icons[type]} toast-icon"></i>
         <div class="toast-content">
-            <div class="toast-title">${title}</div>
-            <div class="toast-message">${message}</div>
+            <div class="toast-title">${escapeHtml(title)}</div>
+            <div class="toast-message">${escapeHtml(message)}</div>
         </div>
         <button class="toast-close" onclick="this.parentElement.remove()">
             <i class="fas fa-times"></i>

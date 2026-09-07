@@ -75,8 +75,8 @@ const updatePendientesTable = (remesas) => {
     
     tbody.innerHTML = remesas.map(remesa => `
         <tr>
-            <td>${remesa.remesero_nombre}</td>
-            <td>${remesa.ordenante_nombre}</td>
+            <td>${escapeHtml(remesa.remesero_nombre)}</td>
+            <td>${escapeHtml(remesa.ordenante_nombre)}</td>
             <td>${formatDate(remesa.fecha_deposito)}</td>
             <td>${formatCurrency(remesa.importe_cup)}</td>
             <td>

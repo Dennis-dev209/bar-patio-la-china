@@ -8,6 +8,8 @@
 // ============================================
 
 let clientes = [];
+let currentOrdenantes = [];
+let currentDepositos = [];
 let currentRemeseroId = null;
 let currentOrdenanteId = null;
 let currentVista = 'clientes';
@@ -60,12 +62,12 @@ const renderClientesList = (clientesList) => {
     }
     
     container.innerHTML = clientesList.map(cliente => `
-        <div class="cliente-card" onclick="selectCliente(${cliente.id}, '${cliente.nombre}')">
+        <div class="cliente-card" onclick="selectCliente(${cliente.id})">
             <div class="cliente-avatar">
-                ${getInitials(cliente.nombre)}
+                ${escapeHtml(getInitials(cliente.nombre))}
             </div>
             <div class="cliente-info">
-                <div class="cliente-nombre">${cliente.nombre}</div>
+                <div class="cliente-nombre">${escapeHtml(cliente.nombre)}</div>
                 <div class="cliente-meta">
                     <span><i class="fas fa-users"></i> ${cliente.total_ordenantes || 0} ordenantes</span>
                     <span><i class="fas fa-money-bill"></i> ${formatCurrency(cliente.monto_total || 0)}</span>
@@ -86,8 +88,10 @@ const renderClientesList = (clientesList) => {
 // SELECCIONAR CLIENTE
 // ============================================
 
-const selectCliente = async (remeseroId, nombre) => {
+const selectCliente = async (remeseroId) => {
     currentRemeseroId = remeseroId;
+    const cliente = clientes.find(c => c.id === remeseroId);
+    const nombre = cliente ? cliente.nombre : '';
     document.getElementById('ordenantesTitle').textContent = `Ordenantes de ${nombre}`;
     
     try {
@@ -117,12 +121,13 @@ const renderOrdenantesList = (ordenantes, remeseroId) => {
         return;
     }
     
+    currentOrdenantes = ordenantes || [];
     container.innerHTML = ordenantes.map(ordenante => `
-        <div class="ordenante-card" onclick="selectOrdenante(${ordenante.id}, ${remeseroId}, '${ordenante.nombre}')">
+        <div class="ordenante-card" onclick="selectOrdenante(${ordenante.id}, ${remeseroId})">
             <div class="ordenante-info">
-                <div class="ordenante-nombre">${ordenante.nombre}</div>
+                <div class="ordenante-nombre">${escapeHtml(ordenante.nombre)}</div>
                 <div class="ordenante-pais">
-                    <i class="fas fa-globe"></i> ${ordenante.pais_origen || 'Sin país'}
+                    <i class="fas fa-globe"></i> ${escapeHtml(ordenante.pais_origen) || 'Sin país'}
                 </div>
             </div>
             <div class="ordenante-stats">
@@ -144,8 +149,10 @@ const renderOrdenantesList = (ordenantes, remeseroId) => {
 // SELECCIONAR ORDENANTE
 // ============================================
 
-const selectOrdenante = async (ordenanteId, remeseroId, nombre) => {
+const selectOrdenante = async (ordenanteId, remeseroId) => {
     currentOrdenanteId = ordenanteId;
+    const ordenante = currentOrdenantes.find(o => o.id === ordenanteId);
+    const nombre = ordenante ? ordenante.nombre : '';
     document.getElementById('depositosTitle').textContent = `Depósitos de ${nombre}`;
     
     // Guardar remeseroId para nuevos depósitos
@@ -171,6 +178,7 @@ const selectOrdenante = async (ordenanteId, remeseroId, nombre) => {
 
 const renderDepositosList = (remesas) => {
     const container = document.getElementById('depositosList');
+    currentDepositos = remesas || [];
     
     if (!remesas || remesas.length === 0) {
         container.innerHTML = `
@@ -196,19 +204,19 @@ const renderDepositosList = (remesas) => {
             </div>
             <div class="deposito-body">
                 <div class="deposito-monto">
-                    <span class="monto-moneda">${remesa.moneda}</span>
+                    <span class="monto-moneda">${escapeHtml(remesa.moneda)}</span>
                     <span class="monto-valor">${formatCurrency(remesa.importe, remesa.moneda)}</span>
                     <i class="fas fa-arrow-right"></i>
                     <span class="monto-cup">${formatCurrency(remesa.importe_cup)}</span>
                 </div>
                 ${remesa.referencia ? `
                     <div class="deposito-referencia">
-                        <i class="fas fa-hashtag"></i> ${remesa.referencia}
+                        <i class="fas fa-hashtag"></i> ${escapeHtml(remesa.referencia)}
                     </div>
                 ` : ''}
             </div>
             <div class="deposito-footer">
-                <button class="confirm-btn ${remesa.estado}" onclick="toggleConfirmacion(${remesa.id}, '${remesa.estado}')">
+                <button class="confirm-btn ${remesa.estado}" onclick="toggleConfirmacion(${remesa.id})">
                     ${remesa.estado === 'pendiente' ? 
                         '<i class="fas fa-check"></i> Confirmar' : 
                         '<i class="fas fa-undo"></i> Desconfirmar'}
@@ -225,7 +233,10 @@ const renderDepositosList = (remesas) => {
 // TOGGLE CONFIRMACIÓN
 // ============================================
 
-const toggleConfirmacion = async (id, estadoActual) => {
+const toggleConfirmacion = async (id) => {
+    // El estado se resuelve desde el caché (nunca desde strings interpolados en onclick)
+    const deposito = currentDepositos.find(d => d.id === id);
+    const estadoActual = deposito ? deposito.estado : 'pendiente';
     const accion = estadoActual === 'pendiente' ? 'confirmar' : 'desconfirmar';
     const mensaje = estadoActual === 'pendiente' ? 
         '¿Confirmar que recibiste este pago?' : 

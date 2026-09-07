@@ -1,6 +1,7 @@
 let currentRemeseroId = null;
 let currentRemeseroNombre = '';
 let ordenantes = [];
+let landingClientes = [];
 
 const checkAuth = () => {
     const token = localStorage.getItem('token');
@@ -68,15 +69,18 @@ async function loadClientsLanding() {
 function renderClientsLanding(clientes) {
     const grid = document.getElementById('clientesLandingGrid');
 
+    // Caché para resolver nombres por id sin interpolar strings en onclick (anti-XSS)
+    landingClientes = clientes || [];
+
     if (!clientes || clientes.length === 0) {
         grid.innerHTML = '<div class="text-center text-muted p-xl"><i class="fas fa-info-circle"></i> No hay clientes registrados</div>';
         return;
     }
 
     grid.innerHTML = clientes.map(c => `
-        <div class="client-card" onclick="goToOrdenantes(${c.id}, '${c.nombre.replace(/'/g, "\\'")}')">
-            <div class="client-avatar">${getInitials(c.nombre)}</div>
-            <div class="client-name">${c.nombre}</div>
+        <div class="client-card" onclick="goToOrdenantes(${c.id})">
+            <div class="client-avatar">${escapeHtml(getInitials(c.nombre))}</div>
+            <div class="client-name">${escapeHtml(c.nombre)}</div>
             <div class="client-stats">
                 <span><i class="fas fa-exchange-alt"></i> ${c.total_remesas || 0} remesas</span>
                 <span><i class="fas fa-user-friends"></i> ${c.total_ordenantes || 0} ordenantes</span>
@@ -85,9 +89,10 @@ function renderClientsLanding(clientes) {
     `).join('');
 }
 
-function goToOrdenantes(remeseroId, nombre) {
+function goToOrdenantes(remeseroId) {
     currentRemeseroId = remeseroId;
-    currentRemeseroNombre = nombre;
+    const found = landingClientes.find(c => c.id === remeseroId);
+    if (found) currentRemeseroNombre = found.nombre;
     window.history.pushState({}, '', `/ordenantes/${remeseroId}`);
     document.getElementById('vistaClientesLanding').classList.add('hidden');
     document.getElementById('vistaOrdenantes').classList.remove('hidden');
@@ -136,7 +141,7 @@ function renderOrdenantes() {
         return `
         <div class="ordenante-card">
             <div class="ordenante-menu-container">
-                <button class="ordenante-menu-btn" onclick="toggleOrdenanteMenu(event, ${o.id}, '${o.nombre.replace(/'/g, "\\'")}')">
+                <button class="ordenante-menu-btn" onclick="toggleOrdenanteMenu(event, ${o.id})">
                     <i class="fas fa-ellipsis-v"></i>
                 </button>
                 <div class="ordenante-dropdown" id="menu-${o.id}">
@@ -146,20 +151,20 @@ function renderOrdenantes() {
                     <button class="dropdown-item" onclick="openAddDepositoModal(${o.id})">
                         <i class="fas fa-plus-circle"></i> Agregar depósito
                     </button>
-                    <button class="dropdown-item" onclick="openRenameModal(${o.id}, '${o.nombre.replace(/'/g, "\\'")}')">
+                    <button class="dropdown-item" onclick="openRenameModal(${o.id})">
                         <i class="fas fa-pen"></i> Renombrar
                     </button>
                     <button class="dropdown-divider"></button>
-                    <button class="dropdown-item danger" onclick="deleteOrdenante(${o.id}, '${o.nombre.replace(/'/g, "\\'")}')">
+                    <button class="dropdown-item danger" onclick="deleteOrdenante(${o.id})">
                         <i class="fas fa-trash"></i> Eliminar
                     </button>
                 </div>
             </div>
-            <div class="ordenante-avatar">${getInitials(o.nombre)}</div>
-            <div class="ordenante-name">${o.nombre}</div>
+            <div class="ordenante-avatar">${escapeHtml(getInitials(o.nombre))}</div>
+            <div class="ordenante-name">${escapeHtml(o.nombre)}</div>
             <div class="ordenante-stats">
                 <span class="stat-badge blue"><i class="fas fa-receipt"></i> ${totalRemesas} depósito${totalRemesas !== 1 ? 's' : ''}</span>
-                <span class="stat-badge ${moneda === 'USD' || moneda === 'EUR' ? 'green' : 'orange'}">${moneda}</span>
+                <span class="stat-badge ${moneda === 'USD' || moneda === 'EUR' ? 'green' : 'orange'}">${escapeHtml(moneda)}</span>
             </div>
             <div class="ordenante-monto ${montoPendiente > 0 ? 'pendiente' : ''}">${formatCurrency(montoTotal, moneda)}</div>
         </div>
@@ -282,11 +287,11 @@ async function showDetalles(ordenanteId) {
                 <div class="detalle-deposito ${d.estado === 'confirmado' ? 'confirmado' : 'pendiente'}">
                     <div class="detalle-row">
                         <span class="detalle-label">Fecha:</span>
-                        <span class="detalle-value">${new Date(d.fecha_deposito).toLocaleDateString('es-ES')}</span>
+                        <span class="detalle-value">${escapeHtml(new Date(d.fecha_deposito).toLocaleDateString('es-ES'))}</span>
                     </div>
                     <div class="detalle-row">
                         <span class="detalle-label">Moneda:</span>
-                        <span class="detalle-value">${d.moneda}</span>
+                        <span class="detalle-value">${escapeHtml(d.moneda)}</span>
                     </div>
                     <div class="detalle-row">
                         <span class="detalle-label">Importe:</span>
@@ -294,7 +299,7 @@ async function showDetalles(ordenanteId) {
                     </div>
                     <div class="detalle-row">
                         <span class="detalle-label">Tasa Cambio:</span>
-                        <span class="detalle-value">${d.tasa_cambio}</span>
+                        <span class="detalle-value">${escapeHtml(d.tasa_cambio)}</span>
                     </div>
                     <div class="detalle-row">
                         <span class="detalle-label">Importe CUP:</span>
@@ -303,7 +308,7 @@ async function showDetalles(ordenanteId) {
                     ${d.referencia ? `
                     <div class="detalle-row">
                         <span class="detalle-label">Referencia:</span>
-                        <span class="detalle-value">${d.referencia}</span>
+                        <span class="detalle-value">${escapeHtml(d.referencia)}</span>
                     </div>` : ''}
                     <div class="detalle-row">
                         <span class="detalle-label">Estado:</span>
@@ -314,7 +319,7 @@ async function showDetalles(ordenanteId) {
                     ${d.confirmado_por_nombre ? `
                     <div class="detalle-row">
                         <span class="detalle-label">Confirmado por:</span>
-                        <span class="detalle-value">${d.confirmado_por_nombre}</span>
+                        <span class="detalle-value">${escapeHtml(d.confirmado_por_nombre)}</span>
                     </div>` : ''}
                 </div>
             `).join('');
@@ -324,9 +329,9 @@ async function showDetalles(ordenanteId) {
 
         document.getElementById('detallesContent').innerHTML = `
             <div class="detalles-header">
-                <div class="detalles-avatar">${getInitials(ordenante.nombre)}</div>
-                <h4>${ordenante.nombre}</h4>
-                <p class="text-muted">${ordenante.remesero_nombre}</p>
+                <div class="detalles-avatar">${escapeHtml(getInitials(ordenante.nombre))}</div>
+                <h4>${escapeHtml(ordenante.nombre)}</h4>
+                <p class="text-muted">${escapeHtml(ordenante.remesero_nombre)}</p>
             </div>
             <div class="detalles-stats">
                 <div class="stat-mini">
@@ -420,8 +425,14 @@ async function saveAddDeposito() {
 // ============================================
 // MODAL: Renombrar Ordenante
 // ============================================
-function openRenameModal(ordenanteId, nombre) {
+function findOrdenante(id) {
+    return ordenantes.find(o => o.id === id);
+}
+
+function openRenameModal(ordenanteId) {
     closeAllMenus();
+    const ordenante = findOrdenante(ordenanteId);
+    const nombre = ordenante ? ordenante.nombre : '';
     document.getElementById('renombrarId').value = ordenanteId;
     document.getElementById('renombrarNombreActual').textContent = nombre;
     document.getElementById('renombrarNuevoNombre').value = nombre;
@@ -453,9 +464,11 @@ async function saveRename() {
 // ============================================
 // ELIMINAR Ordenante
 // ============================================
-async function deleteOrdenante(ordenanteId, nombre) {
+async function deleteOrdenante(ordenanteId) {
     closeAllMenus();
 
+    const ordenante = findOrdenante(ordenanteId);
+    const nombre = ordenante ? ordenante.nombre : '';
     const confirmed = await showConfirm(
         `¿Eliminar a "${nombre}"? Se desactivará este ordenante y no aparecerá en la lista.`
     );

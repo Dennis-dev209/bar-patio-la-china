@@ -166,14 +166,20 @@ const reportesService = {
 // UTILIDADES
 // ============================================
 
-// Formatear moneda
+// Formatear moneda (tolerante: un código inválido no rompe la página)
 const formatCurrency = (amount, currency = 'CUP') => {
-    const formatter = new Intl.NumberFormat('es-ES', {
-        style: 'currency',
-        currency: currency,
-        minimumFractionDigits: 2
-    });
-    return formatter.format(amount);
+    const num = Number(amount);
+    const safeAmount = Number.isFinite(num) ? num : 0;
+    try {
+        const formatter = new Intl.NumberFormat('es-ES', {
+            style: 'currency',
+            currency: currency,
+            minimumFractionDigits: 2
+        });
+        return formatter.format(safeAmount);
+    } catch (e) {
+        return `${safeAmount.toFixed(2)} ${currency || ''}`.trim();
+    }
 };
 
 // Formatear fecha
@@ -209,25 +215,38 @@ const getInitials = (name) => {
         .substring(0, 2);
 };
 
+// Escapar HTML para prevenir XSS al interpolar datos de la BD.
+// Convierte & < > " ' en entidades. Usar SIEMPRE al mostrar
+// nombre, email, teléfono, descripción, referencia, etc.
+const escapeHtml = (value) => {
+    if (value === undefined || value === null) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+};
+
 // Toast notification
 const showToast = (type, title, message) => {
     const container = document.getElementById('toastContainer');
     if (!container) return;
-    
+
     const icons = {
         success: 'fas fa-check-circle',
         error: 'fas fa-exclamation-circle',
         warning: 'fas fa-exclamation-triangle',
         info: 'fas fa-info-circle'
     };
-    
+
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.innerHTML = `
         <i class="${icons[type]} toast-icon"></i>
         <div class="toast-content">
-            <div class="toast-title">${title}</div>
-            <div class="toast-message">${message}</div>
+            <div class="toast-title">${escapeHtml(title)}</div>
+            <div class="toast-message">${escapeHtml(message)}</div>
         </div>
         <button class="toast-close" onclick="this.parentElement.remove()">
             <i class="fas fa-times"></i>
@@ -263,5 +282,6 @@ window.formatCurrency = formatCurrency;
 window.formatDate = formatDate;
 window.formatDateTime = formatDateTime;
 window.getInitials = getInitials;
+window.escapeHtml = escapeHtml;
 window.showToast = showToast;
 window.showConfirm = showConfirm;

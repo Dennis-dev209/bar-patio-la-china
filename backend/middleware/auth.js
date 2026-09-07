@@ -1,8 +1,11 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-// Middleware para verificar JWT
-const authenticateToken = (req, res, next) => {
+// Middleware para verificar JWT + revocación efectiva.
+// Además de la firma, comprueba que el usuario siga existiendo y activo,
+// para que eliminar/desactivar una cuenta corte el acceso de inmediato
+// (antes, un token robado o de un exempleado valía hasta 24 h).
+const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -10,12 +13,30 @@ const authenticateToken = (req, res, next) => {
         return res.status(401).json({ error: 'Token de acceso requerido' });
     }
 
+    let decoded;
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+        return res.status(403).json({ error: 'Token inválido o expirado' });
+    }
+
+    try {
+        // Lazy require para evitar cualquier ciclo de dependencias
+        const { db } = require('../config/database');
+        const result = await db.query(
+            'SELECT id, activo FROM usuarios WHERE id = ?',
+            [decoded.id]
+        );
+
+        if (result.rows.length === 0 || Number(result.rows[0].activo) === 0) {
+            return res.status(403).json({ error: 'Cuenta desactivada o eliminada' });
+        }
+
         req.user = decoded;
         next();
     } catch (error) {
-        return res.status(403).json({ error: 'Token inválido o expirado' });
+        console.error('Error al verificar usuario:', error);
+        return res.status(500).json({ error: 'Error al verificar sesión' });
     }
 };
 

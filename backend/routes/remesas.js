@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
 const { authenticateToken, requireAdmin, logAudit } = require('../middleware/auth');
+const { parseImporte, parseTasa, parseCantidad, isValidDate, parseMoneda, parseId, parsePagination, ESTADOS_VALIDOS } = require('../middleware/validation');
 
 // ============================================
 // GET /api/remesas
@@ -10,6 +11,19 @@ const { authenticateToken, requireAdmin, logAudit } = require('../middleware/aut
 router.get('/', authenticateToken, async (req, res) => {
     try {
         const { remesero_id, ordenante_id, estado, fecha_inicio, fecha_fin, page = 1, limit = 50 } = req.query;
+
+        // Paginación segura: limit máximo 100, page >= 1
+        const { page: safePage, limit: safeLimit, offset } = parsePagination(page, limit, 100);
+
+        // Estado contra lista cerrada
+        if (estado && !ESTADOS_VALIDOS.includes(estado)) {
+            return res.status(400).json({ error: 'Estado no válido' });
+        }
+
+        // Fechas con formato válido si se proporcionan
+        if ((fecha_inicio && !isValidDate(fecha_inicio)) || (fecha_fin && !isValidDate(fecha_fin))) {
+            return res.status(400).json({ error: 'Fecha no válida (YYYY-MM-DD)' });
+        }
 
         let query = `
             SELECT 
@@ -58,11 +72,10 @@ router.get('/', authenticateToken, async (req, res) => {
         );
         const total = parseInt(countResult.rows[0].total);
 
-        // Paginación
-        const offset = (page - 1) * limit;
+        // Paginación (valores ya saneados)
         query += ` ORDER BY rem.fecha_deposito DESC, rem.created_at DESC`;
         query += ` LIMIT ? OFFSET ?`;
-        params.push(limit, offset);
+        params.push(safeLimit, offset);
 
         const result = await db.query(query, params);
 
@@ -70,9 +83,9 @@ router.get('/', authenticateToken, async (req, res) => {
             remesas: result.rows,
             pagination: {
                 total,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                pages: Math.ceil(total / limit)
+                page: safePage,
+                limit: safeLimit,
+                pages: Math.ceil(total / safeLimit)
             }
         });
 
@@ -141,22 +154,52 @@ router.post('/', authenticateToken, async (req, res) => {
             });
         }
 
-        // Validar que importe sea positivo
-        if (parseFloat(importe) <= 0) {
-            return res.status(400).json({ error: 'El importe debe ser mayor a 0' });
+        // Validar IDs enteros
+        const ordenanteIdNum = parseId(ordenante_id);
+        const remeseroIdNum = parseId(remesero_id);
+        if (ordenanteIdNum === null || remeseroIdNum === null) {
+            return res.status(400).json({ error: 'Ordenante o remesero inválido' });
         }
 
-        // Validar que tasa_cambio sea positiva (antes del default)
-        if (tasa_cambio !== undefined && tasa_cambio !== null && parseFloat(tasa_cambio) <= 0) {
-            return res.status(400).json({ error: 'La tasa de cambio debe ser mayor a 0' });
+        // Validar que importe sea un número mayor a 0 (rechaza NaN, texto, negativos)
+        const importeNum = parseImporte(importe);
+        if (importeNum === null) {
+            return res.status(400).json({ error: 'El importe debe ser un número mayor a 0' });
         }
 
-        const tasa = parseFloat(tasa_cambio) || 1.0;
+        // Validar fecha real YYYY-MM-DD
+        if (!isValidDate(fecha_deposito)) {
+            return res.status(400).json({ error: 'La fecha de depósito no es válida (YYYY-MM-DD)' });
+        }
+
+        // Validar código de moneda ISO (3 letras)
+        const monedaCode = parseMoneda(moneda);
+        if (monedaCode === null) {
+            return res.status(400).json({ error: 'La moneda no es válida (código de 3 letras)' });
+        }
+
+        // Validar que tasa_cambio sea positiva si se proporciona (antes del default)
+        let tasa = 1.0;
+        if (tasa_cambio !== undefined && tasa_cambio !== null && tasa_cambio !== '') {
+            tasa = parseTasa(tasa_cambio);
+            if (tasa === null) {
+                return res.status(400).json({ error: 'La tasa de cambio debe ser un número mayor a 0' });
+            }
+        }
+
+        // Validar cantidad_deposito si se proporciona
+        let cantidadNum = null;
+        if (cantidad_deposito !== undefined && cantidad_deposito !== null && cantidad_deposito !== '') {
+            cantidadNum = parseCantidad(cantidad_deposito);
+            if (cantidadNum === null) {
+                return res.status(400).json({ error: 'La cantidad de depósito no es válida' });
+            }
+        }
 
         // Verificar que el ordenante exista
         const ordenanteResult = await db.query(
             'SELECT id, nombre FROM ordenantes WHERE id = ? AND activo = 1',
-            [ordenante_id]
+            [ordenanteIdNum]
         );
 
         if (ordenanteResult.rows.length === 0) {
@@ -164,7 +207,7 @@ router.post('/', authenticateToken, async (req, res) => {
         }
 
         // Calcular importe CUP
-        const importeCUP = parseFloat(importe) * tasa;
+        const importeCUP = importeNum * tasa;
 
         // Crear remesa
         await db.query(
@@ -173,15 +216,15 @@ router.post('/', authenticateToken, async (req, res) => {
                 importe, tasa_cambio, importe_cup, referencia, cantidad_deposito
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                ordenante_id, remesero_id, fecha_deposito, moneda,
-                importe, tasa, importeCUP, referencia || null, cantidad_deposito || null
+                ordenanteIdNum, remeseroIdNum, fecha_deposito, monedaCode,
+                importeNum, tasa, importeCUP, referencia || null, cantidadNum
             ]
         );
 
         // Obtener la remesa creada
         const nuevaRemesa = (await db.query(
             'SELECT * FROM remesas WHERE ordenante_id = ? AND fecha_deposito = ? ORDER BY id DESC LIMIT 1',
-            [ordenante_id, fecha_deposito]
+            [ordenanteIdNum, fecha_deposito]
         )).rows[0];
 
         // Registrar auditoría
@@ -309,23 +352,59 @@ router.put('/:id', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Remesa no encontrada' });
         }
 
-        // Validar importe positivo si se proporciona
-        if (importe !== undefined && parseFloat(importe) <= 0) {
-            return res.status(400).json({ error: 'El importe debe ser mayor a 0' });
+        // Validar importe si se proporciona (número mayor a 0, rechaza NaN/texto)
+        let importeNum;
+        if (importe !== undefined && importe !== null && importe !== '') {
+            importeNum = parseImporte(importe);
+            if (importeNum === null) {
+                return res.status(400).json({ error: 'El importe debe ser un número mayor a 0' });
+            }
         }
 
-        // Validar tasa_cambio positiva si se proporciona
-        if (tasa_cambio !== undefined && tasa_cambio !== null && parseFloat(tasa_cambio) <= 0) {
-            return res.status(400).json({ error: 'La tasa de cambio debe ser mayor a 0' });
+        // Validar tasa_cambio si se proporciona
+        let tasaNum;
+        if (tasa_cambio !== undefined && tasa_cambio !== null && tasa_cambio !== '') {
+            tasaNum = parseTasa(tasa_cambio);
+            if (tasaNum === null) {
+                return res.status(400).json({ error: 'La tasa de cambio debe ser un número mayor a 0' });
+            }
         }
 
-        // Recalcular importe CUP si es necesario
-        let importeCUP = anteriorResult.rows[0].importe_cup;
-        if (importe && tasa_cambio) {
-            importeCUP = parseFloat(importe) * parseFloat(tasa_cambio);
+        // Validar fecha si se proporciona
+        if (fecha_deposito !== undefined && fecha_deposito !== null && fecha_deposito !== '' && !isValidDate(fecha_deposito)) {
+            return res.status(400).json({ error: 'La fecha de depósito no es válida (YYYY-MM-DD)' });
         }
 
-        // Actualizar
+        // Validar moneda si se proporciona
+        let monedaCode;
+        if (moneda !== undefined && moneda !== null && moneda !== '') {
+            monedaCode = parseMoneda(moneda);
+            if (monedaCode === null) {
+                return res.status(400).json({ error: 'La moneda no es válida (código de 3 letras)' });
+            }
+        }
+
+        // Validar cantidad_deposito si se proporciona
+        let cantidadNum;
+        if (cantidad_deposito !== undefined && cantidad_deposito !== null && cantidad_deposito !== '') {
+            cantidadNum = parseCantidad(cantidad_deposito);
+            if (cantidadNum === null) {
+                return res.status(400).json({ error: 'La cantidad de depósito no es válida' });
+            }
+        }
+
+        // Recalcular importe CUP si cambió importe o tasa (usa valores actuales como base)
+        const anterior = anteriorResult.rows[0];
+        let importeCUP = anterior.importe_cup;
+        if (importeNum !== undefined || tasaNum !== undefined) {
+            const importeFinal = importeNum !== undefined ? importeNum : Number(anterior.importe);
+            const tasaFinal = tasaNum !== undefined ? tasaNum : Number(anterior.tasa_cambio);
+            if (Number.isFinite(importeFinal) && Number.isFinite(tasaFinal)) {
+                importeCUP = importeFinal * tasaFinal;
+            }
+        }
+
+        // Actualizar (solo valores validados; undefined conserva el valor actual)
         await db.query(
             `UPDATE remesas 
              SET fecha_deposito = COALESCE(?, fecha_deposito),
@@ -336,7 +415,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
                  referencia = COALESCE(?, referencia),
                  cantidad_deposito = COALESCE(?, cantidad_deposito)
              WHERE id = ?`,
-            [fecha_deposito, moneda, importe, tasa_cambio, importeCUP, referencia, cantidad_deposito, id]
+            [fecha_deposito || null, monedaCode || null, importeNum || null, tasaNum || null, importeCUP, referencia || null, (cantidadNum === undefined ? null : cantidadNum), id]
         );
 
         // Obtener la remesa actualizada
