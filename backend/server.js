@@ -164,6 +164,11 @@ const startServer = async () => {
             res.sendFile(path.join(__dirname, '../frontend/resumen.html'));
         });
         
+        // Usuarios (solo admin)
+        app.get('/usuarios', (req, res) => {
+            res.sendFile(path.join(__dirname, '../frontend/usuarios.html'));
+        });
+        
         // ============================================
         // MANEJO DE ERRORES
         // ============================================

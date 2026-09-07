@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inicio - Bar Patio La China</title>
+    <title>Usuarios - Bar Patio La China</title>
     <link rel="stylesheet" href="/css/variables.css?v=3">
     <link rel="stylesheet" href="/css/base.css?v=3">
     <link rel="stylesheet" href="/css/components.css?v=3">
+    <link rel="stylesheet" href="/css/usuarios.css?v=3">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -24,7 +25,7 @@
             <nav class="sidebar-nav">
                 <div class="nav-section">
                     <div class="nav-section-title">Menú</div>
-                    <a href="/inicio" class="nav-item active">
+                    <a href="/inicio" class="nav-item">
                         <span class="nav-item-icon"><i class="fas fa-home"></i></span>
                         <span class="nav-text">Inicio</span>
                     </a>
@@ -39,13 +40,12 @@
                     <a href="/conciliacion" class="nav-item">
                         <span class="nav-item-icon"><i class="fas fa-handshake"></i></span>
                         <span class="nav-text">Conciliación</span>
-                        <span class="nav-badge" id="pendingBadge">0</span>
                     </a>
                     <a href="/resumen" class="nav-item">
                         <span class="nav-item-icon"><i class="fas fa-chart-bar"></i></span>
                         <span class="nav-text">Resumen</span>
                     </a>
-                    <a href="/usuarios" class="nav-item">
+                    <a href="/usuarios" class="nav-item active">
                         <span class="nav-item-icon"><i class="fas fa-user-shield"></i></span>
                         <span class="nav-text">Usuarios</span>
                     </a>
@@ -68,9 +68,13 @@
                     <button class="menu-toggle" onclick="toggleSidebar()">
                         <i class="fas fa-bars"></i>
                     </button>
-                    <h2 class="page-title">Inicio</h2>
+                    <h2 class="page-title">Usuarios</h2>
                 </div>
                 <div class="header-right">
+                    <button class="btn btn-primary" onclick="openCreateModal()">
+                        <i class="fas fa-plus"></i>
+                        <span>Nuevo Usuario</span>
+                    </button>
                     <div class="dropdown">
                         <button class="btn btn-ghost btn-icon" onclick="toggleDropdown(this)">
                             <i class="fas fa-user-circle"></i>
@@ -99,94 +103,58 @@
                 <!-- Estadísticas -->
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-icon red">
+                        <div class="stat-icon blue">
                             <i class="fas fa-users"></i>
                         </div>
                         <div class="stat-content">
-                            <div class="stat-label">Total Clientes</div>
-                            <div class="stat-value" id="totalClientes">0</div>
-                        </div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-icon blue">
-                            <i class="fas fa-exchange-alt"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-label">Total Remesas</div>
-                            <div class="stat-value" id="totalRemesas">0</div>
-                        </div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-icon yellow">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-label">Pendientes</div>
-                            <div class="stat-value" id="pendientes">0</div>
-                            <div class="stat-change negative" id="pendientesMonto">$0.00</div>
+                            <div class="stat-label">Total Usuarios</div>
+                            <div class="stat-value" id="totalUsuarios">0</div>
                         </div>
                     </div>
                     
                     <div class="stat-card">
                         <div class="stat-icon green">
-                            <i class="fas fa-check-circle"></i>
+                            <i class="fas fa-user-shield"></i>
                         </div>
                         <div class="stat-content">
-                            <div class="stat-label">Confirmados</div>
-                            <div class="stat-value" id="confirmados">0</div>
-                            <div class="stat-change positive" id="confirmadosMonto">$0.00</div>
+                            <div class="stat-label">Administradores</div>
+                            <div class="stat-value" id="totalAdmins">0</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon yellow">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Empleados</div>
+                            <div class="stat-value" id="totalEmpleados">0</div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Acciones rápidas -->
-                <div class="card mb-xl">
-                    <div class="card-header">
-                        <h3 class="card-title">Acciones Rápidas</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="quick-actions">
-                            <a href="/clientes" class="quick-action-btn">
-                                <i class="fas fa-user-plus"></i>
-                                <span>Nuevo Cliente</span>
-                            </a>
-                            <a href="/remesas" class="quick-action-btn">
-                                <i class="fas fa-plus-circle"></i>
-                                <span>Nueva Remesa</span>
-                            </a>
-                            <a href="/resumen" class="quick-action-btn">
-                                <i class="fas fa-file-alt"></i>
-                                <span>Ver Reportes</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Remesas pendientes -->
+                <!-- Lista de usuarios -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Últimas Remesas Pendientes</h3>
-                        <a href="/remesas" class="btn btn-sm btn-outline">Ver Todas</a>
+                        <h3 class="card-title">Lista de Usuarios</h3>
                     </div>
                     <div class="card-body">
                         <div class="table-container">
                             <table class="table">
                                 <thead>
                                     <tr>
-                                        <th>Cliente</th>
-                                        <th>Ordenante</th>
-                                        <th>Fecha</th>
-                                        <th>Monto</th>
+                                        <th>Usuario</th>
+                                        <th>Email</th>
+                                        <th>Rol</th>
                                         <th>Estado</th>
+                                        <th>Creado</th>
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody id="pendientesTable">
+                                <tbody id="usuariosTable">
                                     <tr>
                                         <td colspan="6" class="text-center text-muted">
-                                            Cargando remesas...
+                                            Cargando usuarios...
                                         </td>
                                     </tr>
                                 </tbody>
@@ -198,11 +166,52 @@
         </main>
     </div>
     
+    <!-- Modal: Crear Usuario -->
+    <div class="modal-overlay" id="createModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Nuevo Usuario</h3>
+                <button class="modal-close" onclick="closeCreateModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="createForm" onsubmit="createUser(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" id="createNombre" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="createEmail" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contraseña</label>
+                        <input type="password" id="createPassword" class="form-input" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rol</label>
+                        <select id="createRol" class="form-select" required>
+                            <option value="empleado">Empleado</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeCreateModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Crear Usuario
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <!-- Toast container -->
     <div id="toastContainer" class="toast-container"></div>
     
     <script src="/js/theme.js?v=3"></script>
     <script src="/js/api.js?v=3"></script>
-    <script src="/js/dashboard.js?v=3"></script>
+    <script src="/js/usuarios.js?v=3"></script>
 </body>
 </html>

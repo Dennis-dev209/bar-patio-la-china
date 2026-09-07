@@ -307,4 +307,93 @@ router.put('/change-password', authenticateToken, async (req, res) => {
     }
 });
 
+// ============================================
+// GET /api/auth/users
+// Listar todos los usuarios (solo admin)
+// ============================================
+router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const result = await db.query(
+            'SELECT id, nombre, email, rol, activo, created_at FROM usuarios ORDER BY created_at DESC'
+        );
+
+        res.json({ usuarios: result.rows });
+
+    } catch (error) {
+        console.error('Error al obtener usuarios:', error);
+        res.status(500).json({ error: 'Error al obtener usuarios' });
+    }
+});
+
+// ============================================
+// DELETE /api/auth/users/:id
+// Eliminar usuario (solo admin, no puede eliminarse a sí mismo)
+// ============================================
+router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // No puede eliminarse a sí mismo
+        if (parseInt(id) === req.user.id) {
+            return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta' });
+        }
+
+        // Verificar que el usuario existe
+        const userCheck = await db.query('SELECT id, nombre FROM usuarios WHERE id = ?', [id]);
+        if (userCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        // Eliminar usuario
+        await db.query('DELETE FROM usuarios WHERE id = ?', [id]);
+
+        // Registrar auditoría
+        logAudit(db, req.user.id, 'delete', 'usuarios', parseInt(id), null, null, req.ip);
+
+        res.json({ message: 'Usuario eliminado exitosamente' });
+
+    } catch (error) {
+        console.error('Error al eliminar usuario:', error);
+        res.status(500).json({ error: 'Error al eliminar usuario' });
+    }
+});
+
+// ============================================
+// PUT /api/auth/users/:id/role
+// Cambiar rol de usuario (solo admin)
+// ============================================
+router.put('/users/:id/role', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { rol } = req.body;
+
+        if (!rol || !['admin', 'empleado'].includes(rol)) {
+            return res.status(400).json({ error: 'Rol inválido. Usa: admin o empleado' });
+        }
+
+        // No puede cambiar su propio rol
+        if (parseInt(id) === req.user.id) {
+            return res.status(400).json({ error: 'No puedes cambiar tu propio rol' });
+        }
+
+        // Verificar que el usuario existe
+        const userCheck = await db.query('SELECT id FROM usuarios WHERE id = ?', [id]);
+        if (userCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        // Actualizar rol
+        await db.query('UPDATE usuarios SET rol = ? WHERE id = ?', [rol, parseInt(id)]);
+
+        // Registrar auditoría
+        logAudit(db, req.user.id, 'update', 'usuarios', parseInt(id), null, { rol }, req.ip);
+
+        res.json({ message: 'Rol actualizado exitosamente' });
+
+    } catch (error) {
+        console.error('Error al cambiar rol:', error);
+        res.status(500).json({ error: 'Error al cambiar rol' });
+    }
+});
+
 module.exports = router;
