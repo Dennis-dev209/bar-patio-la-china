@@ -96,6 +96,18 @@ const showToast = (type, title, message) => {
     }, 5000);
 };
 
+// Parseo defensivo de respuestas: si el servidor devuelve texto plano
+// (ej. un 429), no romper con "Unexpected token ... is not valid JSON".
+const parseJsonSafe = async (response) => {
+    const rawText = await response.text();
+    if (!rawText) return {};
+    try {
+        return JSON.parse(rawText);
+    } catch (e) {
+        return { error: rawText };
+    }
+};
+
 // ============================================
 // LOGIN
 // ============================================
@@ -126,9 +138,13 @@ const handleLogin = async (e) => {
             },
             body: JSON.stringify({ email, password })
         });
-        
-        const data = await response.json();
-        
+
+        const data = await parseJsonSafe(response);
+
+        if (response.status === 429) {
+            throw new Error(data.error || 'Demasiados intentos. Espera 15 minutos e intenta de nuevo.');
+        }
+
         if (!response.ok) {
             throw new Error(data.error || 'Error al iniciar sesión');
         }
@@ -177,9 +193,13 @@ const handleForgotPassword = async (e) => {
             },
             body: JSON.stringify({ email })
         });
-        
-        const data = await response.json();
-        
+
+        const data = await parseJsonSafe(response);
+
+        if (response.status === 429) {
+            throw new Error(data.error || 'Demasiadas peticiones. Espera unos minutos e intenta de nuevo.');
+        }
+
         if (!response.ok) {
             throw new Error(data.error || 'Error al procesar solicitud');
         }

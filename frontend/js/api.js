@@ -47,12 +47,24 @@ const apiRequest = async (endpoint, options = {}) => {
             return;
         }
         
-        const data = await response.json();
-        
+        // Parseo defensivo: si el servidor responde texto plano
+        // (ej. un 429 del rate limit), no romper con "Unexpected token".
+        const rawText = await response.text();
+        let data = {};
+        try {
+            data = rawText ? JSON.parse(rawText) : {};
+        } catch (e) {
+            data = { error: rawText || 'Error en la petición' };
+        }
+
+        if (response.status === 429) {
+            throw new Error(data.error || 'Demasiadas peticiones. Espera unos minutos e intenta de nuevo.');
+        }
+
         if (!response.ok) {
             throw new Error(data.error || 'Error en la petición');
         }
-        
+
         return data;
         
     } catch (error) {
