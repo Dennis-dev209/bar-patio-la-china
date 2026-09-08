@@ -35,4 +35,8 @@ data/database.sqlite
 # Logs del servidor
 server_output.log
 server.log
-audit*.json 
+audit*.json
+
+# Respaldos de BD (contienen datos sensibles, no subir a GitHub)
+backups/
+

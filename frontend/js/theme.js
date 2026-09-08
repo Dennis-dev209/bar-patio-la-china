@@ -33,7 +33,39 @@ const toggleTheme = () => {
 // Aplicar tema al cargar la página
 document.addEventListener('DOMContentLoaded', () => {
     applyTheme(getSavedTheme());
+    renderDbBadge();
 });
+
+// ============================================
+// INSIGNIA DE BASE DE DATOS
+// Muestra a qué BD estás conectado (nube o local) y conteos.
+// Si la insignia dice "Local" en producción o los conteos son 0
+// inesperadamente, NO sigas cargando datos: avisa.
+// ============================================
+const renderDbBadge = async () => {
+    // Solo en páginas autenticadas (con token)
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+        const base = window.location.origin + '/api';
+        const res = await fetch(base + '/health', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok) return; // sin permiso o sin sesión: no mostrar nada
+        const health = await res.json();
+
+        const badge = document.createElement('div');
+        badge.id = 'dbBadge';
+        badge.className = 'db-badge ' + (health.db.mode === 'turso' ? 'db-cloud' : 'db-local');
+        const dot = health.db.mode === 'turso' ? '●' : '○';
+        badge.textContent = `${dot} ${health.db.label} · ${health.counts.remeseros} clientes · ${health.counts.remesas} remesas`;
+        badge.title = `Conectado a: ${health.db.detail}`;
+        document.body.appendChild(badge);
+    } catch (e) {
+        // Sin conexión al health: no bloquear la página
+    }
+};
 
 // Exportar funciones
 window.toggleTheme = toggleTheme;

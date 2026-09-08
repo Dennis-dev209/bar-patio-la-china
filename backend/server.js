@@ -149,7 +149,44 @@ const startServer = async () => {
         // Rutas de reportes
         const reportesRoutes = require('./routes/reportes');
         app.use('/api/reportes', reportesRoutes);
-        
+
+        // Salud de la BD (solo admin): indica a qué base de datos se está
+        // conectado y cuántos registros hay. Sirve para detectar al instante
+        // si la app apunta a una BD vacía o equivocada.
+        const { authenticateToken, requireAdmin } = require('./middleware/auth');
+        app.get('/api/health', authenticateToken, requireAdmin, async (req, res) => {
+            try {
+                const dbUrl = process.env.DATABASE_URL || '';
+                const isTurso = !!dbUrl;
+                const host = isTurso
+                    ? dbUrl.replace(/^libsql:\/\//, '').split('?')[0]
+                    : 'SQLite local (disco efímero en Render)';
+
+                const counts = {};
+                for (const t of ['usuarios', 'remeseros', 'ordenantes', 'remesas']) {
+                    const r = await db.query(`SELECT COUNT(*) as n FROM ${t}`);
+                    counts[t] = Number(r.rows[0].n);
+                }
+
+                res.json({
+                    db: {
+                        mode: isTurso ? 'turso' : 'local',
+                        label: isTurso ? 'Nube' : 'Local',
+                        detail: isTurso ? `Turso: ${host}` : 'SQLite local — solo desarrollo'
+                    },
+                    counts: {
+                        usuarios: counts.usuarios,
+                        remeseros: counts.remeseros,
+                        ordenantes: counts.ordenantes,
+                        remesas: counts.remesas
+                    }
+                });
+            } catch (error) {
+                console.error('Error en /api/health:', error);
+                res.status(500).json({ error: 'No se pudo leer el estado de la BD' });
+            }
+        });
+
         // ============================================
         // RUTAS DEL FRONTEND (SPA)
         // ============================================

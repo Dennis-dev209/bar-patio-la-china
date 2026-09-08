@@ -126,11 +126,12 @@ const createDbWrapper = () => {
                 try {
                     // Si es un solo statement con parámetros, ejecutar directo
                     const trimmedSql = text.trim().toUpperCase();
-                    const isSingleStatement = trimmedSql.startsWith('SELECT') || 
-                        trimmedSql.startsWith('INSERT') || 
-                        trimmedSql.startsWith('UPDATE') || 
+                    const isSingleStatement = trimmedSql.startsWith('SELECT') ||
+                        trimmedSql.startsWith('INSERT') ||
+                        trimmedSql.startsWith('UPDATE') ||
                         trimmedSql.startsWith('DELETE') ||
-                        trimmedSql.startsWith('WITH');
+                        trimmedSql.startsWith('WITH') ||
+                        trimmedSql.startsWith('PRAGMA');
                     
                     if (isSingleStatement || (params && params.length > 0)) {
                         const result = await tursoClient.execute({
