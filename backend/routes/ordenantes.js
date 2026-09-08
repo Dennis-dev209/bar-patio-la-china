@@ -202,15 +202,11 @@ router.post('/', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Remesero no encontrado' });
         }
 
-        // Crear ordenante
-        await db.query(
-            'INSERT INTO ordenantes (remesero_id, nombre) VALUES (?, ?)',
-            [remeseroIdNum, nombre]
-        );
-
+        // Crear ordenante (RETURNING evita confusión ante
+        // creaciones concurrentes con el mismo nombre)
         const nuevoOrdenante = (await db.query(
-            'SELECT * FROM ordenantes WHERE nombre = ? AND remesero_id = ? ORDER BY id DESC LIMIT 1',
-            [nombre, remeseroIdNum]
+            'INSERT INTO ordenantes (remesero_id, nombre) VALUES (?, ?) RETURNING *',
+            [remeseroIdNum, nombre]
         )).rows[0];
 
         // Crear primer depósito (valores ya validados)

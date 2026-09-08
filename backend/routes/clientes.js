@@ -108,17 +108,12 @@ router.post('/', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'El nombre es requerido' });
         }
 
-        // Crear remesero
-        await db.query(
-            `INSERT INTO remeseros (nombre, telefono, descripcion) 
-             VALUES (?, ?, ?)`,
-            [nombre, telefono || null, descripcion || null]
-        );
-
-        // Obtener el remesero creado
+        // Crear remesero (RETURNING devuelve la fila exacta creada,
+        // seguro ante creaciones concurrentes con el mismo nombre)
         const nuevoRemesero = (await db.query(
-            'SELECT * FROM remeseros WHERE nombre = ? ORDER BY id DESC LIMIT 1',
-            [nombre]
+            `INSERT INTO remeseros (nombre, telefono, descripcion)
+             VALUES (?, ?, ?) RETURNING *`,
+            [nombre, telefono || null, descripcion || null]
         )).rows[0];
 
         // Registrar auditoría

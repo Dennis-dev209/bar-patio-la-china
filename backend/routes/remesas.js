@@ -209,22 +209,16 @@ router.post('/', authenticateToken, async (req, res) => {
         // Calcular importe CUP
         const importeCUP = importeNum * tasa;
 
-        // Crear remesa
-        await db.query(
+        // Crear remesa (RETURNING devuelve la fila exacta creada)
+        const nuevaRemesa = (await db.query(
             `INSERT INTO remesas (
-                ordenante_id, remesero_id, fecha_deposito, moneda, 
+                ordenante_id, remesero_id, fecha_deposito, moneda,
                 importe, tasa_cambio, importe_cup, referencia, cantidad_deposito
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
             [
                 ordenanteIdNum, remeseroIdNum, fecha_deposito, monedaCode,
                 importeNum, tasa, importeCUP, referencia || null, cantidadNum
             ]
-        );
-
-        // Obtener la remesa creada
-        const nuevaRemesa = (await db.query(
-            'SELECT * FROM remesas WHERE ordenante_id = ? AND fecha_deposito = ? ORDER BY id DESC LIMIT 1',
-            [ordenanteIdNum, fecha_deposito]
         )).rows[0];
 
         // Registrar auditoría

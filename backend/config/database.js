@@ -208,6 +208,17 @@ const createDbWrapper = () => {
                     stmt.free();
                     
                     return { rows, rowCount: rows.length };
+                } else if (trimmedSql.startsWith('INSERT') && /RETURNING/i.test(sql)) {
+                    // INSERT...RETURNING: leer la fila creada directamente
+                    // (seguro ante concurrencia, sin SELECT posterior)
+                    const stmt = sqliteDb.prepare(sql);
+                    stmt.bind(params);
+                    const rows = [];
+                    while (stmt.step()) {
+                        rows.push(stmt.getAsObject());
+                    }
+                    stmt.free();
+                    return { rows, rowCount: rows.length };
                 } else if (trimmedSql.startsWith('INSERT')) {
                     sqliteDb.run(sql, params);
                     const lastIdResult = sqliteDb.exec("SELECT last_insert_rowid() as id");

@@ -247,6 +247,10 @@ const startServer = async () => {
         
         // Error general del servidor
         app.use((err, req, res, next) => {
+            // Origen no permitido por CORS: 403 limpio (no 500)
+            if (err && err.message === 'No permitido por CORS') {
+                return res.status(403).json({ error: 'Origen no permitido' });
+            }
             console.error('Error del servidor:', err);
             res.status(500).json({ error: 'Error interno del servidor' });
         });

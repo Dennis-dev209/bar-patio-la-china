@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { db } = require('../config/database');
 const { authenticateToken, requireAdmin, logAudit } = require('../middleware/auth');
+const { parsePassword } = require('../middleware/validation');
 require('dotenv').config();
 
 // ============================================
@@ -93,6 +94,12 @@ router.post('/register', authenticateToken, requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Nombre, email y contraseña son requeridos' });
         }
 
+        // Política de contraseñas: mínimo 8 caracteres
+        const cleanPassword = parsePassword(password);
+        if (cleanPassword === null) {
+            return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+        }
+
         // Verificar si el email ya existe
         const existingUser = await db.query(
             'SELECT id FROM usuarios WHERE email = ?',
@@ -105,7 +112,7 @@ router.post('/register', authenticateToken, requireAdmin, async (req, res) => {
 
         // Hashear contraseña
         const salt = bcrypt.genSaltSync(10);
-        const password_hash = bcrypt.hashSync(password, salt);
+        const password_hash = bcrypt.hashSync(cleanPassword, salt);
 
         // Crear usuario
         const result = await db.query(
@@ -159,6 +166,9 @@ router.post('/forgot-password', async (req, res) => {
 
         const usuario = result.rows[0];
 
+        // Limpieza oportunista: borrar tokens usados o expirados
+        await db.query(`DELETE FROM reset_tokens WHERE used = 1 OR expira_en <= datetime('now')`);
+
         // Generar token
         const token = crypto.randomBytes(32).toString('hex');
         const expiraEn = new Date(Date.now() + 3600000).toISOString(); // 1 hora
@@ -198,6 +208,11 @@ router.post('/reset-password', async (req, res) => {
             return res.status(400).json({ error: 'Token y nueva contraseña son requeridos' });
         }
 
+        const cleanNewPassword = parsePassword(newPassword);
+        if (cleanNewPassword === null) {
+            return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+        }
+
         // Buscar token válido
         const result = await db.query(
             `SELECT id, usuario_id, expira_en FROM reset_tokens 
@@ -213,7 +228,7 @@ router.post('/reset-password', async (req, res) => {
 
         // Hashear nueva contraseña
         const salt = bcrypt.genSaltSync(10);
-        const password_hash = bcrypt.hashSync(newPassword, salt);
+        const password_hash = bcrypt.hashSync(cleanNewPassword, salt);
 
         // Actualizar contraseña
         await db.query(
@@ -273,6 +288,11 @@ router.put('/change-password', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Contraseña actual y nueva contraseña son requeridas' });
         }
 
+        const cleanNewPassword = parsePassword(newPassword);
+        if (cleanNewPassword === null) {
+            return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
+        }
+
         // Obtener contraseña actual
         const result = await db.query(
             'SELECT password_hash FROM usuarios WHERE id = ?',
@@ -291,7 +311,7 @@ router.put('/change-password', authenticateToken, async (req, res) => {
 
         // Hashear nueva contraseña
         const salt = bcrypt.genSaltSync(10);
-        const password_hash = bcrypt.hashSync(newPassword, salt);
+        const password_hash = bcrypt.hashSync(cleanNewPassword, salt);
 
         // Actualizar
         await db.query(

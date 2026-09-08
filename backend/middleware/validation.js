@@ -73,6 +73,15 @@ const parsePagination = (page, limit, maxLimit = 100) => {
     return { page: p, limit: l, offset: (p - 1) * l };
 };
 
+// Contraseña: mínimo 8 caracteres, máximo 128 (límite de bcrypt).
+// Devuelve el password recortado o null si no cumple.
+const parsePassword = (value) => {
+    if (typeof value !== 'string') return null;
+    const pw = value.trim();
+    if (pw.length < 8 || value.length > 128) return null;
+    return pw;
+};
+
 // Estados válidos de remesa
 const ESTADOS_VALIDOS = ['pendiente', 'confirmado'];
 
@@ -85,5 +94,6 @@ module.exports = {
     parseMoneda,
     parseId,
     parsePagination,
+    parsePassword,
     ESTADOS_VALIDOS
 };
