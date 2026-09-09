@@ -67,12 +67,13 @@ const loadReportData = async () => {
         
         reportData = {
             resumen: resumen.resumen,
+            porMoneda: resumen.por_moneda || [],
             porPeriodo: porPeriodo.reporte,
             porRemesero: porRemesero.reporte
         };
-        
+
         // Actualizar UI
-        updateStats(reportData.resumen);
+        updateStats(reportData.resumen, reportData.porMoneda);
         renderPeriodoTable(reportData.porPeriodo);
         renderRemeseroTable(reportData.porRemesero);
         
@@ -86,14 +87,23 @@ const loadReportData = async () => {
 // ACTUALIZAR ESTADÍSTICAS
 // ============================================
 
-const updateStats = (stats) => {
-    document.getElementById('totalRecibido').textContent = formatCurrency(stats.monto_total || 0);
-    document.getElementById('totalConfirmado').textContent = formatCurrency(stats.monto_confirmado || 0);
-    document.getElementById('totalPendiente').textContent = formatCurrency(stats.monto_pendiente || 0);
-    
-    const total = parseFloat(stats.monto_total) || 0;
-    const confirmado = parseFloat(stats.monto_confirmado) || 0;
-    const porcentaje = total > 0 ? ((confirmado / total) * 100).toFixed(1) : 0;
+const updateStats = (stats, porMoneda = []) => {
+    // Montos en moneda extranjera (desglose por moneda; respaldo en CUP)
+    document.getElementById('totalRecibido').innerHTML = formatMontosPorMoneda(porMoneda, 'monto_total', stats.monto_total);
+    document.getElementById('totalConfirmado').innerHTML = formatMontosPorMoneda(porMoneda, 'monto_confirmado', stats.monto_confirmado);
+    document.getElementById('totalPendiente').innerHTML = formatMontosPorMoneda(porMoneda, 'monto_pendiente', stats.monto_pendiente);
+
+    // % confirmado: con una sola moneda se calcula por dinero (como antes);
+    // con varias, por cantidad de depósitos (sumar monedas distintas no tiene sentido)
+    let porcentaje = 0;
+    if (porMoneda.length > 1) {
+        const totalN = (stats.remesas_pendientes || 0) + (stats.remesas_confirmadas || 0);
+        porcentaje = totalN > 0 ? (((stats.remesas_confirmadas || 0) / totalN) * 100).toFixed(1) : 0;
+    } else {
+        const total = parseFloat(stats.monto_total) || 0;
+        const confirmado = parseFloat(stats.monto_confirmado) || 0;
+        porcentaje = total > 0 ? ((confirmado / total) * 100).toFixed(1) : 0;
+    }
     document.getElementById('porcentajeConfirmado').textContent = `${porcentaje}%`;
 };
 

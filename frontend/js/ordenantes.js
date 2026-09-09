@@ -166,7 +166,7 @@ function renderOrdenantes() {
                 <span class="stat-badge blue"><i class="fas fa-receipt"></i> ${totalRemesas} depósito${totalRemesas !== 1 ? 's' : ''}</span>
                 <span class="stat-badge ${moneda === 'USD' || moneda === 'EUR' ? 'green' : 'orange'}">${escapeHtml(moneda)}</span>
             </div>
-            <div class="ordenante-monto ${montoPendiente > 0 ? 'pendiente' : ''}">${formatCurrency(montoTotal, 'CUP')}</div>
+            <div class="ordenante-monto ${montoPendiente > 0 ? 'pendiente' : ''}">${formatCurrency(o.monto_total_moneda ?? montoTotal, moneda)}</div>
         </div>
     `;
     }).join('');
@@ -341,12 +341,12 @@ async function showDetalles(ordenanteId) {
                     <div class="stat-mini-value">${estadisticas.total_depositos}</div>
                 </div>
                 <div class="stat-mini">
-                    <div class="stat-mini-label">Pendiente</div>
-                    <div class="stat-mini-value yellow">${formatCurrency(estadisticas.monto_pendiente, 'CUP')}</div>
+                    <div class="stat-mini-label">Pendiente (${escapeHtml(estadisticas.ultima_moneda || 'CUP')})</div>
+                    <div class="stat-mini-value yellow">${formatCurrency(estadisticas.monto_pendiente_moneda ?? estadisticas.monto_pendiente, estadisticas.ultima_moneda || 'CUP')}</div>
                 </div>
                 <div class="stat-mini">
-                    <div class="stat-mini-label">Confirmado</div>
-                    <div class="stat-mini-value green">${formatCurrency(estadisticas.monto_confirmado, 'CUP')}</div>
+                    <div class="stat-mini-label">Confirmado (${escapeHtml(estadisticas.ultima_moneda || 'CUP')})</div>
+                    <div class="stat-mini-value green">${formatCurrency(estadisticas.monto_confirmado_moneda ?? estadisticas.monto_confirmado, estadisticas.ultima_moneda || 'CUP')}</div>
                 </div>
             </div>
             <div class="detalles-depositos">

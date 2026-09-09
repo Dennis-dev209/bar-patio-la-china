@@ -286,6 +286,18 @@ const syncTasaForMoneda = (monedaSelect, tasaInput) => {
     }
 };
 
+// Formatear montos del desglose por moneda (por_moneda del resumen).
+// Una sola moneda: "USD 1,250.00". Varias: una línea por moneda.
+// Si está vacío, usa el monto CUP de respaldo.
+const formatMontosPorMoneda = (porMoneda, campo, respaldoCUP) => {
+    if (porMoneda && porMoneda.length > 0) {
+        return porMoneda
+            .map(m => `${escapeHtml(m.moneda)} ${formatCurrency(m[campo] || 0, m.moneda)}`)
+            .join('<br>');
+    }
+    return formatCurrency(respaldoCUP || 0, 'CUP');
+};
+
 // Confirm dialog
 const showConfirm = (message) => {
     return new Promise((resolve) => {
@@ -309,6 +321,7 @@ window.formatDate = formatDate;
 window.formatDateTime = formatDateTime;
 window.getInitials = getInitials;
 window.escapeHtml = escapeHtml;
+window.formatMontosPorMoneda = formatMontosPorMoneda;
 window.syncTasaForMoneda = syncTasaForMoneda;
 window.showToast = showToast;
 window.showConfirm = showConfirm;

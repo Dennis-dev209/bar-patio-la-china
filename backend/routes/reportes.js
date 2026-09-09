@@ -25,7 +25,25 @@ router.get('/resumen', authenticateToken, async (req, res) => {
             WHERE r.activo = 1
         `);
 
-        res.json({ resumen: result.rows[0] });
+        // Desglose por moneda extranjera (importe sin convertir).
+        // Se agrupa directo desde remesas para no duplicar filas.
+        const porMoneda = await db.query(`
+            SELECT
+                rem.moneda as moneda,
+                COUNT(*) as total_remesas,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe ELSE 0 END), 0) as monto_pendiente,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe ELSE 0 END), 0) as monto_confirmado,
+                COALESCE(SUM(rem.importe), 0) as monto_total,
+                COUNT(CASE WHEN rem.estado = 'pendiente' THEN 1 END) as pendientes,
+                COUNT(CASE WHEN rem.estado = 'confirmado' THEN 1 END) as confirmadas
+            FROM remesas rem
+            JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
+            JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
+            GROUP BY rem.moneda
+            ORDER BY monto_total DESC
+        `);
+
+        res.json({ resumen: result.rows[0], por_moneda: porMoneda.rows });
 
     } catch (error) {
         console.error('Error al obtener resumen:', error);

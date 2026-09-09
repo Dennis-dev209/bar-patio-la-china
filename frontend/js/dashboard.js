@@ -27,7 +27,7 @@ const loadDashboardData = async () => {
     try {
         // Cargar resumen
         const resumen = await reportesService.getResumen();
-        updateStats(resumen.resumen);
+        updateStats(resumen.resumen, resumen.por_moneda || []);
         
         // Cargar pendientes
         const pendientes = await reportesService.getPendientes();
@@ -46,13 +46,13 @@ const loadDashboardData = async () => {
 // ACTUALIZAR ESTADÍSTICAS
 // ============================================
 
-const updateStats = (stats) => {
+const updateStats = (stats, porMoneda = []) => {
     document.getElementById('totalClientes').textContent = stats.total_remeseros || 0;
     document.getElementById('totalRemesas').textContent = stats.total_remesas || 0;
     document.getElementById('pendientes').textContent = stats.remesas_pendientes || 0;
-    document.getElementById('pendientesMonto').textContent = formatCurrency(stats.monto_pendiente || 0);
+    document.getElementById('pendientesMonto').innerHTML = formatMontosPorMoneda(porMoneda, 'monto_pendiente', stats.monto_pendiente);
     document.getElementById('confirmados').textContent = stats.remesas_confirmadas || 0;
-    document.getElementById('confirmadosMonto').textContent = formatCurrency(stats.monto_confirmado || 0);
+    document.getElementById('confirmadosMonto').innerHTML = formatMontosPorMoneda(porMoneda, 'monto_confirmado', stats.monto_confirmado);
 };
 
 // ============================================
@@ -78,7 +78,7 @@ const updatePendientesTable = (remesas) => {
             <td>${escapeHtml(remesa.remesero_nombre)}</td>
             <td>${escapeHtml(remesa.ordenante_nombre)}</td>
             <td>${formatDate(remesa.fecha_deposito)}</td>
-            <td>${formatCurrency(remesa.importe_cup)}</td>
+            <td>${escapeHtml(remesa.moneda)} ${formatCurrency(remesa.importe, remesa.moneda)}</td>
             <td>
                 <span class="status-indicator pending">
                     <span class="status-dot"></span>
