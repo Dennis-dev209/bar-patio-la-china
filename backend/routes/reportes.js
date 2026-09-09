@@ -21,7 +21,7 @@ router.get('/resumen', authenticateToken, async (req, res) => {
                 COUNT(CASE WHEN rem.estado = 'confirmado' THEN 1 END) as remesas_confirmadas
             FROM remeseros r
             LEFT JOIN ordenantes o ON r.id = o.remesero_id AND o.activo = 1
-            LEFT JOIN remesas rem ON r.id = rem.remesero_id
+            LEFT JOIN remesas rem ON o.id = rem.ordenante_id
             WHERE r.activo = 1
         `);
 
