@@ -272,6 +272,20 @@ const showToast = (type, title, message) => {
     }, 5000);
 };
 
+// Sincronizar tasa con la moneda: si es CUP la tasa siempre es 1
+// (se bloquea el campo); en otro caso se libera y se limpia para
+// que el usuario escriba la tasa que quiera.
+const syncTasaForMoneda = (monedaSelect, tasaInput) => {
+    if (!monedaSelect || !tasaInput) return;
+    if (monedaSelect.value === 'CUP') {
+        tasaInput.value = '1';
+        tasaInput.disabled = true;
+    } else {
+        tasaInput.disabled = false;
+        if (tasaInput.value === '1') tasaInput.value = '';
+    }
+};
+
 // Confirm dialog
 const showConfirm = (message) => {
     return new Promise((resolve) => {
@@ -295,5 +309,6 @@ window.formatDate = formatDate;
 window.formatDateTime = formatDateTime;
 window.getInitials = getInitials;
 window.escapeHtml = escapeHtml;
+window.syncTasaForMoneda = syncTasaForMoneda;
 window.showToast = showToast;
 window.showConfirm = showConfirm;

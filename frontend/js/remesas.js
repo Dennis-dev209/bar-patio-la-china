@@ -297,7 +297,12 @@ const openAddDepositoModal = () => {
     
     // Establecer fecha actual
     document.getElementById('depositoFecha').valueAsDate = new Date();
-    
+
+    // Moneda USD por defecto y tasa limpia (el usuario la escribe)
+    document.getElementById('depositoMoneda').value = 'USD';
+    document.getElementById('depositoTasa').value = '';
+    syncTasaForMoneda(document.getElementById('depositoMoneda'), document.getElementById('depositoTasa'));
+
     calculateImporteCUP();
     openModal('depositoModal');
 };
@@ -337,6 +342,11 @@ const saveDeposito = async () => {
     
     if (!ordenanteId || !remeseroId || !importe || !fecha) {
         showToast('warning', 'Campos requeridos', 'Completa todos los campos obligatorios');
+        return;
+    }
+
+    if (!tasa || !(tasa > 0)) {
+        showToast('warning', 'Tasa requerida', 'Escribe la tasa de cambio (mayor a 0)');
         return;
     }
     

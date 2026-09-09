@@ -209,7 +209,7 @@
                         </div>
                         <div class="form-group">
                             <label for="depMoneda" class="form-label required">Moneda</label>
-                            <select id="depMoneda" class="form-select" required onchange="calculateImporteCUP()">
+                            <select id="depMoneda" class="form-select" required onchange="syncTasaForMoneda(this, document.getElementById('depTasa')); calculateImporteCUP();">
                                 <option value="USD">USD - Dólar Americano</option>
                                 <option value="EUR">EUR - Euro</option>
                                 <option value="MXN">MXN - Peso Mexicano</option>
@@ -227,7 +227,7 @@
                         </div>
                         <div class="form-group">
                             <label for="depTasa" class="form-label required">Tasa de Cambio</label>
-                            <input type="number" id="depTasa" class="form-input" step="0.0001" min="0" value="120" required oninput="calculateImporteCUP()">
+                            <input type="number" id="depTasa" class="form-input" step="0.0001" min="0" placeholder="Ej: 120" required oninput="calculateImporteCUP()">
                         </div>
                     </div>
                     
@@ -293,7 +293,7 @@
                         </div>
                         <div class="form-group">
                             <label for="addDepMoneda" class="form-label required">Moneda</label>
-                            <select id="addDepMoneda" class="form-select" required onchange="calculateAddDepCUP()">
+                            <select id="addDepMoneda" class="form-select" required onchange="syncTasaForMoneda(this, document.getElementById('addDepTasa')); calculateAddDepCUP();">
                                 <option value="USD">USD - Dólar Americano</option>
                                 <option value="EUR">EUR - Euro</option>
                                 <option value="MXN">MXN - Peso Mexicano</option>
@@ -311,7 +311,7 @@
                         </div>
                         <div class="form-group">
                             <label for="addDepTasa" class="form-label required">Tasa de Cambio</label>
-                            <input type="number" id="addDepTasa" class="form-input" step="0.0001" min="0" value="120" required oninput="calculateAddDepCUP()">
+                            <input type="number" id="addDepTasa" class="form-input" step="0.0001" min="0" placeholder="Ej: 120" required oninput="calculateAddDepCUP()">
                         </div>
                     </div>
                     

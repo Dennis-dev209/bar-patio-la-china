@@ -166,7 +166,7 @@ function renderOrdenantes() {
                 <span class="stat-badge blue"><i class="fas fa-receipt"></i> ${totalRemesas} depósito${totalRemesas !== 1 ? 's' : ''}</span>
                 <span class="stat-badge ${moneda === 'USD' || moneda === 'EUR' ? 'green' : 'orange'}">${escapeHtml(moneda)}</span>
             </div>
-            <div class="ordenante-monto ${montoPendiente > 0 ? 'pendiente' : ''}">${formatCurrency(montoTotal, moneda)}</div>
+            <div class="ordenante-monto ${montoPendiente > 0 ? 'pendiente' : ''}">${formatCurrency(montoTotal, 'CUP')}</div>
         </div>
     `;
     }).join('');
@@ -224,8 +224,9 @@ function openAddOrdenanteModal() {
     document.getElementById('depFecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('depMoneda').value = 'USD';
     document.getElementById('depImporte').value = '';
-    document.getElementById('depTasa').value = '120';
+    document.getElementById('depTasa').value = '';
     document.getElementById('depReferencia').value = '';
+    syncTasaForMoneda(document.getElementById('depMoneda'), document.getElementById('depTasa'));
     calculateImporteCUP();
     document.getElementById('ordenanteModal').classList.add('active');
 }
@@ -250,6 +251,7 @@ async function saveOrdenante() {
 
     if (!nombre) { showToast('error', 'Error', 'El nombre es requerido'); return; }
     if (!fecha || !moneda || !importe) { showToast('error', 'Error', 'Fecha, moneda e importe son requeridos'); return; }
+    if (!tasa || !(parseFloat(tasa) > 0)) { showToast('error', 'Error', 'Escribe la tasa de cambio (mayor a 0)'); return; }
 
     try {
         await ordenantesService.create({
@@ -268,7 +270,7 @@ async function saveOrdenante() {
         loadOrdenantes();
     } catch (error) {
         console.error('Error creating ordenante:', error);
-        showToast('error', 'Error', 'No se pudo crear el ordenante');
+        showToast('error', 'Error', error.message || 'No se pudo crear el ordenante');
     }
 }
 
@@ -374,8 +376,9 @@ function openAddDepositoModal(ordenanteId) {
     document.getElementById('addDepFecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('addDepMoneda').value = 'USD';
     document.getElementById('addDepImporte').value = '';
-    document.getElementById('addDepTasa').value = '120';
+    document.getElementById('addDepTasa').value = '';
     document.getElementById('addDepReferencia').value = '';
+    syncTasaForMoneda(document.getElementById('addDepMoneda'), document.getElementById('addDepTasa'));
     calculateAddDepCUP();
     document.getElementById('addDepositoModal').classList.add('active');
 }
@@ -400,6 +403,7 @@ async function saveAddDeposito() {
     const referencia = document.getElementById('addDepReferencia').value.trim();
 
     if (!fecha || !moneda || !importe) { showToast('error', 'Error', 'Fecha, moneda e importe son requeridos'); return; }
+    if (!tasa || !(parseFloat(tasa) > 0)) { showToast('error', 'Error', 'Escribe la tasa de cambio (mayor a 0)'); return; }
 
     try {
         await remesasService.create({
@@ -418,7 +422,7 @@ async function saveAddDeposito() {
         loadOrdenantes();
     } catch (error) {
         console.error('Error adding deposito:', error);
-        showToast('error', 'Error', 'No se pudo agregar el depósito');
+        showToast('error', 'Error', error.message || 'No se pudo agregar el depósito');
     }
 }
 

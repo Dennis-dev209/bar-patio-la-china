@@ -182,7 +182,7 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="depositoMoneda" class="form-label required">Moneda</label>
-                            <select id="depositoMoneda" class="form-select" required onchange="calculateImporteCUP()">
+                            <select id="depositoMoneda" class="form-select" required onchange="syncTasaForMoneda(this, document.getElementById('depositoTasa')); calculateImporteCUP();">
                                 <option value="USD">USD - Dólar Americano</option>
                                 <option value="EUR">EUR - Euro</option>
                                 <option value="MXN">MXN - Peso Mexicano</option>
@@ -201,7 +201,7 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="depositoTasa" class="form-label required">Tasa de Cambio</label>
-                            <input type="number" id="depositoTasa" class="form-input" step="0.0001" min="0" value="120" required oninput="calculateImporteCUP()">
+                            <input type="number" id="depositoTasa" class="form-input" step="0.0001" min="0" placeholder="Ej: 120" required oninput="calculateImporteCUP()">
                         </div>
                         
                         <div class="form-group">

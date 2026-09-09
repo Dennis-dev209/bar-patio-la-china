@@ -184,6 +184,11 @@ router.post('/', authenticateToken, async (req, res) => {
             }
         }
 
+        // Si la moneda es CUP, la tasa siempre es 1 (se ignora la enviada)
+        if (monedaCode === 'CUP') {
+            tasa = 1.0;
+        }
+
         // Validar cantidad_deposito si se proporciona
         let cantidadNum = null;
         if (cantidad_deposito !== undefined && cantidad_deposito !== null && cantidad_deposito !== '') {

@@ -187,6 +187,11 @@ router.post('/', authenticateToken, async (req, res) => {
             }
         }
 
+        // Si la moneda es CUP, la tasa siempre es 1 (se ignora la enviada)
+        if (monedaCode === 'CUP') {
+            tasa = 1.0;
+        }
+
         // Validar cantidad_deposito si se proporciona
         let cantidadNum = null;
         if (cantidad_deposito !== undefined && cantidad_deposito !== null && cantidad_deposito !== '') {
@@ -389,6 +394,11 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
         // Recalcular importe CUP si cambió importe o tasa (usa valores actuales como base)
         const anterior = anteriorResult.rows[0];
+        // Si la moneda final es CUP, la tasa siempre es 1
+        const monedaFinal = monedaCode || anterior.moneda;
+        if (monedaFinal === 'CUP') {
+            tasaNum = 1.0;
+        }
         let importeCUP = anterior.importe_cup;
         if (importeNum !== undefined || tasaNum !== undefined) {
             const importeFinal = importeNum !== undefined ? importeNum : Number(anterior.importe);
