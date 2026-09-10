@@ -2,6 +2,8 @@ let currentRemeseroId = null;
 let currentRemeseroNombre = '';
 let ordenantes = [];
 let landingClientes = [];
+let currentDetallesOrdenanteId = null;
+let currentDetallesDepositos = [];
 
 const checkAuth = () => {
     const token = localStorage.getItem('token');
@@ -351,6 +353,8 @@ async function showDetalles(ordenanteId) {
     try {
         const result = await ordenantesService.getDetalles(ordenanteId);
         const { ordenante, depositos, estadisticas } = result;
+        currentDetallesOrdenanteId = ordenanteId;
+        currentDetallesDepositos = depositos || [];
 
         let depositosHTML = '';
         if (depositos && depositos.length > 0) {
@@ -392,6 +396,11 @@ async function showDetalles(ordenanteId) {
                         <span class="detalle-label">Confirmado por:</span>
                         <span class="detalle-value">${escapeHtml(d.confirmado_por_nombre)}</span>
                     </div>` : ''}
+                    <div class="detalle-row">
+                        <button class="btn btn-sm btn-secondary" onclick="openEditDepositoModal(${d.id})">
+                            <i class="fas fa-pen"></i> Editar depósito
+                        </button>
+                    </div>
                 </div>
             `).join('');
         } else {
@@ -440,6 +449,8 @@ function closeDetallesModal() {
 // ============================================
 function openAddDepositoModal(ordenanteId) {
     closeAllMenus();
+    document.getElementById('addDepositoModalTitle').textContent = 'Agregar Depósito';
+    document.getElementById('addDepDepositoId').value = '';
     document.getElementById('addDepOrdenanteId').value = ordenanteId;
     document.getElementById('addDepRemeseroId').value = currentRemeseroId;
     document.getElementById('addDepFecha').value = new Date().toISOString().split('T')[0];
@@ -447,6 +458,28 @@ function openAddDepositoModal(ordenanteId) {
     document.getElementById('addDepImporte').value = '';
     document.getElementById('addDepTasa').value = '';
     document.getElementById('addDepReferencia').value = '';
+    syncTasaForMoneda(document.getElementById('addDepMoneda'), document.getElementById('addDepTasa'));
+    calculateAddDepCUP();
+    document.getElementById('addDepositoModal').classList.add('active');
+}
+
+// Abrir el mismo modal en modo edición, precargado con el depósito.
+// Permite corregir cualquier campo manual (fecha, moneda, importe, tasa, referencia).
+function openEditDepositoModal(depositoId) {
+    const d = currentDetallesDepositos.find(x => x.id === depositoId);
+    if (!d) {
+        showToast('error', 'Error', 'No se encontró el depósito');
+        return;
+    }
+    document.getElementById('addDepositoModalTitle').textContent = 'Editar Depósito';
+    document.getElementById('addDepDepositoId').value = d.id;
+    document.getElementById('addDepOrdenanteId').value = d.ordenante_id;
+    document.getElementById('addDepRemeseroId').value = d.remesero_id;
+    document.getElementById('addDepFecha').value = (d.fecha_deposito || '').slice(0, 10);
+    document.getElementById('addDepMoneda').value = d.moneda;
+    document.getElementById('addDepImporte').value = d.importe;
+    document.getElementById('addDepTasa').value = d.tasa_cambio;
+    document.getElementById('addDepReferencia').value = d.referencia || '';
     syncTasaForMoneda(document.getElementById('addDepMoneda'), document.getElementById('addDepTasa'));
     calculateAddDepCUP();
     document.getElementById('addDepositoModal').classList.add('active');
@@ -474,24 +507,43 @@ async function saveAddDeposito() {
     if (!fecha || !moneda || !importe) { showToast('error', 'Error', 'Fecha, moneda e importe son requeridos'); return; }
     if (!tasa || !(parseFloat(tasa) > 0)) { showToast('error', 'Error', 'Escribe la tasa de cambio (mayor a 0)'); return; }
 
-    try {
-        await remesasService.create({
-            ordenante_id: parseInt(ordenanteId),
-            remesero_id: parseInt(remeseroId),
-            fecha_deposito: fecha,
-            moneda,
-            importe: parseFloat(importe),
-            tasa_cambio: parseFloat(tasa),
-            referencia: referencia || null,
-            cantidad_deposito: parseFloat(importe)
-        });
+    const depositoId = document.getElementById('addDepDepositoId').value;
 
-        closeAddDepositoModal();
-        showToast('success', 'Éxito', 'Depósito agregado exitosamente');
+    try {
+        if (depositoId) {
+            // Modo edición: corrige cualquier campo manual del depósito
+            await remesasService.update(parseInt(depositoId), {
+                fecha_deposito: fecha,
+                moneda,
+                importe: parseFloat(importe),
+                tasa_cambio: parseFloat(tasa),
+                referencia: referencia || null,
+                cantidad_deposito: parseFloat(importe)
+            });
+            closeAddDepositoModal();
+            showToast('success', 'Éxito', 'Depósito actualizado exitosamente');
+        } else {
+            await remesasService.create({
+                ordenante_id: parseInt(ordenanteId),
+                remesero_id: parseInt(remeseroId),
+                fecha_deposito: fecha,
+                moneda,
+                importe: parseFloat(importe),
+                tasa_cambio: parseFloat(tasa),
+                referencia: referencia || null,
+                cantidad_deposito: parseFloat(importe)
+            });
+            closeAddDepositoModal();
+            showToast('success', 'Éxito', 'Depósito agregado exitosamente');
+        }
+        // Refrescar detalles (si están abiertos) y tarjetas
+        if (currentDetallesOrdenanteId) {
+            showDetalles(currentDetallesOrdenanteId);
+        }
         loadOrdenantes();
     } catch (error) {
-        console.error('Error adding deposito:', error);
-        showToast('error', 'Error', error.message || 'No se pudo agregar el depósito');
+        console.error('Error guardando depósito:', error);
+        showToast('error', 'Error', error.message || 'No se pudo guardar el depósito');
     }
 }
 
@@ -613,6 +665,7 @@ window.saveOrdenante = saveOrdenante;
 window.showDetalles = showDetalles;
 window.closeDetallesModal = closeDetallesModal;
 window.openAddDepositoModal = openAddDepositoModal;
+window.openEditDepositoModal = openEditDepositoModal;
 window.closeAddDepositoModal = closeAddDepositoModal;
 window.saveAddDeposito = saveAddDeposito;
 window.openRenameModal = openRenameModal;

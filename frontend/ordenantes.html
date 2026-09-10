@@ -272,11 +272,11 @@
         </div>
     </div>
     
-    <!-- Modal: Agregar Depósito -->
+    <!-- Modal: Agregar/Editar Depósito -->
     <div class="modal-backdrop" id="addDepositoModal">
         <div class="modal">
             <div class="modal-header">
-                <h3 class="modal-title">Agregar Depósito</h3>
+                <h3 class="modal-title" id="addDepositoModalTitle">Agregar Depósito</h3>
                 <button class="modal-close" onclick="closeAddDepositoModal()">
                     <i class="fas fa-times"></i>
                 </button>
@@ -285,6 +285,7 @@
                 <form id="addDepositoForm">
                     <input type="hidden" id="addDepOrdenanteId">
                     <input type="hidden" id="addDepRemeseroId">
+                    <input type="hidden" id="addDepDepositoId">
                     
                     <div class="form-row">
                         <div class="form-group">
