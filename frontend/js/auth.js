@@ -291,6 +291,13 @@ if (forgotForm) {
 document.addEventListener('DOMContentLoaded', () => {
     // Solo verificar si estamos en la página de login
     if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+        // Aviso si la sesión se cerró por inactividad
+        try {
+            if (sessionStorage.getItem('sessionExpired') === '1') {
+                sessionStorage.removeItem('sessionExpired');
+                showToast('info', 'Sesión cerrada', 'Se cerró por 20 minutos de inactividad. Entra de nuevo.');
+            }
+        } catch (e) { /* noop */ }
         checkSession();
     }
 });

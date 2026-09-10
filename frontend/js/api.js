@@ -309,6 +309,111 @@ const formatMontosPorMoneda = (porMoneda, campo, respaldoCUP) => {
     return formatCurrency(respaldoCUP || 0, 'CUP');
 };
 
+// ============================================
+// CIERRE DE SESIÓN POR INACTIVIDAD (20 min)
+// Puesto compartido: si nadie toca la página en 20 minutos se cierra
+// sola. Un minuto antes muestra un aviso con opción de seguir.
+// La actividad se comparte entre pestañas vía localStorage.
+// ============================================
+
+const IDLE_LIMIT_MS = 20 * 60 * 1000; // 20 minutos
+const IDLE_WARNING_MS = 60 * 1000; // avisar 1 minuto antes
+const IDLE_CHECK_MS = 15 * 1000; // revisar cada 15 segundos
+const IDLE_KEY = 'lastActivity';
+let idleWarningShown = false;
+
+const touchActivity = () => {
+    try {
+        localStorage.setItem(IDLE_KEY, String(Date.now()));
+    } catch (e) { /* almacenamiento no disponible: no bloquear */ }
+    idleWarningShown = false;
+    dismissIdleWarning();
+};
+
+const getIdleMs = () => {
+    const last = parseInt(localStorage.getItem(IDLE_KEY) || '0', 10);
+    if (!last) {
+        touchActivity();
+        return 0;
+    }
+    return Date.now() - last;
+};
+
+const showIdleWarning = (remainingSec) => {
+    if (document.getElementById('idleWarning')) return;
+    const bar = document.createElement('div');
+    bar.id = 'idleWarning';
+    bar.setAttribute('style', 'position:fixed;top:0;left:0;right:0;z-index:3000;background:#7f1d1d;color:#fff;' +
+        'padding:10px 16px;display:flex;align-items:center;justify-content:center;gap:12px;' +
+        'font-size:14px;font-weight:600;box-shadow:0 2px 10px rgba(0,0,0,.4);');
+    const msg = document.createElement('span');
+    msg.id = 'idleWarningText';
+    msg.textContent = `Tu sesión se cierra en ${remainingSec} s por inactividad.`;
+    const btn = document.createElement('button');
+    btn.textContent = 'Seguir trabajando';
+    btn.setAttribute('style', 'background:#fff;color:#7f1d1d;border:none;border-radius:8px;' +
+        'padding:6px 14px;font-weight:700;cursor:pointer;');
+    btn.onclick = () => touchActivity();
+    bar.appendChild(msg);
+    bar.appendChild(btn);
+    document.body.appendChild(bar);
+};
+
+const dismissIdleWarning = () => {
+    const bar = document.getElementById('idleWarning');
+    if (bar) bar.remove();
+};
+
+const forceIdleLogout = () => {
+    try {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem(IDLE_KEY);
+        sessionStorage.setItem('sessionExpired', '1');
+    } catch (e) { /* noop */ }
+    window.location.href = '/';
+};
+
+const checkIdle = () => {
+    // Sin sesión no hay nada que cerrar (ej. página de login)
+    if (!localStorage.getItem('token')) return;
+
+    const idle = getIdleMs();
+
+    if (idle >= IDLE_LIMIT_MS) {
+        forceIdleLogout();
+        return;
+    }
+
+    if (idle >= IDLE_LIMIT_MS - IDLE_WARNING_MS) {
+        const remaining = Math.max(1, Math.ceil((IDLE_LIMIT_MS - idle) / 1000));
+        showIdleWarning(remaining);
+        const txt = document.getElementById('idleWarningText');
+        if (txt) txt.textContent = `Tu sesión se cierra en ${remaining} s por inactividad.`;
+        idleWarningShown = true;
+    } else if (idleWarningShown) {
+        idleWarningShown = false;
+        dismissIdleWarning();
+    }
+};
+
+const initIdleWatcher = () => {
+    ['click', 'keydown', 'scroll', 'touchstart', 'mousemove'].forEach(evt => {
+        document.addEventListener(evt, touchActivity, { passive: true });
+    });
+    // Primera marca al cargar (cubre el caso de pestaña recién abierta)
+    if (localStorage.getItem('token') && !localStorage.getItem(IDLE_KEY)) {
+        touchActivity();
+    }
+    setInterval(checkIdle, IDLE_CHECK_MS);
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initIdleWatcher);
+} else {
+    initIdleWatcher();
+}
+
 // Confirm dialog
 const showConfirm = (message) => {
     return new Promise((resolve) => {
