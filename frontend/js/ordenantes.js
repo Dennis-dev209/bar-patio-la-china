@@ -217,7 +217,7 @@ function renderOrdenantes() {
                         <i class="fas fa-plus-circle"></i> Agregar depósito
                     </button>
                     <button class="dropdown-item" onclick="openRenameModal(${o.id})">
-                        <i class="fas fa-pen"></i> Renombrar
+                        <i class="fas fa-pen"></i> Editar
                     </button>
                     <button class="dropdown-divider"></button>
                     <button class="dropdown-item danger" onclick="deleteOrdenante(${o.id})">
@@ -502,13 +502,22 @@ function findOrdenante(id) {
     return ordenantes.find(o => o.id === id);
 }
 
-function openRenameModal(ordenanteId) {
+async function openRenameModal(ordenanteId) {
     closeAllMenus();
-    const ordenante = findOrdenante(ordenanteId);
-    const nombre = ordenante ? ordenante.nombre : '';
+    const cached = findOrdenante(ordenanteId);
+    let ordenante = cached || { nombre: '' };
+    try {
+        // Datos completos (teléfono, país) que la lista no trae
+        const result = await ordenantesService.getById(ordenanteId);
+        if (result && result.ordenante) ordenante = result.ordenante;
+    } catch (error) {
+        console.error('Error cargando ordenante:', error);
+    }
     document.getElementById('renombrarId').value = ordenanteId;
-    document.getElementById('renombrarNombreActual').textContent = nombre;
-    document.getElementById('renombrarNuevoNombre').value = nombre;
+    document.getElementById('renombrarNombreActual').textContent = ordenante.nombre || '';
+    document.getElementById('renombrarNuevoNombre').value = ordenante.nombre || '';
+    document.getElementById('renombrarTelefono').value = ordenante.telefono || '';
+    document.getElementById('renombrarPais').value = ordenante.pais_origen || '';
     document.getElementById('renombrarModal').classList.add('active');
     setTimeout(() => document.getElementById('renombrarNuevoNombre').focus(), 100);
 }
@@ -520,17 +529,19 @@ function closeRenombrarModal() {
 async function saveRename() {
     const id = document.getElementById('renombrarId').value;
     const nombre = document.getElementById('renombrarNuevoNombre').value.trim();
+    const telefono = document.getElementById('renombrarTelefono').value.trim();
+    const pais_origen = document.getElementById('renombrarPais').value.trim();
 
     if (!nombre) { showToast('error', 'Error', 'El nombre es requerido'); return; }
 
     try {
-        await ordenantesService.update(id, { nombre });
+        await ordenantesService.update(id, { nombre, telefono, pais_origen });
         closeRenombrarModal();
-        showToast('success', 'Éxito', 'Ordenante renombrado exitosamente');
+        showToast('success', 'Éxito', 'Ordenante actualizado exitosamente');
         loadOrdenantes();
     } catch (error) {
-        console.error('Error renaming ordenante:', error);
-        showToast('error', 'Error', 'No se pudo renombrar el ordenante');
+        console.error('Error actualizando ordenante:', error);
+        showToast('error', 'Error', error.message || 'No se pudo actualizar el ordenante');
     }
 }
 

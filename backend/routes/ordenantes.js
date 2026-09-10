@@ -245,12 +245,12 @@ router.post('/', authenticateToken, async (req, res) => {
 
 // ============================================
 // PUT /api/ordenantes/:id
-// Renombrar ordenante
+// Editar ordenante (nombre, teléfono, país)
 // ============================================
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { nombre } = req.body;
+        const { nombre, telefono, pais_origen } = req.body;
 
         if (!nombre) {
             return res.status(400).json({ error: 'El nombre es requerido' });
@@ -261,14 +261,21 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
             return res.status(404).json({ error: 'Ordenante no encontrado' });
         }
 
-        await db.query('UPDATE ordenantes SET nombre = ? WHERE id = ?', [nombre, id]);
+        await db.query(
+            `UPDATE ordenantes
+             SET nombre = ?,
+                 telefono = COALESCE(?, telefono),
+                 pais_origen = COALESCE(?, pais_origen)
+             WHERE id = ?`,
+            [nombre, telefono || null, pais_origen || null, id]
+        );
 
         const ordenanteActualizado = (await db.query('SELECT * FROM ordenantes WHERE id = ?', [id])).rows[0];
 
-        logAudit(db, req.user.id, 'renombrar', 'ordenantes', id, anteriorResult.rows[0], ordenanteActualizado, req.ip);
+        logAudit(db, req.user.id, 'editar', 'ordenantes', id, anteriorResult.rows[0], ordenanteActualizado, req.ip);
 
         res.json({
-            message: 'Ordenante renombrado exitosamente',
+            message: 'Ordenante actualizado exitosamente',
             ordenante: ordenanteActualizado
         });
 

@@ -336,11 +336,11 @@
         </div>
     </div>
     
-    <!-- Modal: Renombrar Ordenante -->
+    <!-- Modal: Editar Ordenante -->
     <div class="modal-backdrop" id="renombrarModal">
         <div class="modal modal-sm">
             <div class="modal-header">
-                <h3 class="modal-title">Renombrar Ordenante</h3>
+                <h3 class="modal-title">Editar Ordenante</h3>
                 <button class="modal-close" onclick="closeRenombrarModal()">
                     <i class="fas fa-times"></i>
                 </button>
@@ -353,8 +353,16 @@
                         <div class="form-input readonly" id="renombrarNombreActual">-</div>
                     </div>
                     <div class="form-group">
-                        <label for="renombrarNuevoNombre" class="form-label required">Nuevo Nombre</label>
-                        <input type="text" id="renombrarNuevoNombre" class="form-input" placeholder="Nuevo nombre" required>
+                        <label for="renombrarNuevoNombre" class="form-label required">Nombre</label>
+                        <input type="text" id="renombrarNuevoNombre" class="form-input" placeholder="Nombre" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="renombrarTelefono" class="form-label">Teléfono</label>
+                        <input type="text" id="renombrarTelefono" class="form-input" placeholder="Teléfono (opcional)">
+                    </div>
+                    <div class="form-group">
+                        <label for="renombrarPais" class="form-label">País de origen</label>
+                        <input type="text" id="renombrarPais" class="form-input" placeholder="País (opcional)">
                     </div>
                 </form>
             </div>
