@@ -65,12 +65,43 @@ const gridErrorHTML = (retryFn) => `
     </div>
 `;
 
-async function loadClientsLanding() {
+// Token para saber si una carga sigue vigente (evita mensajes cruzados al navegar rápido)
+let loadToken = 0;
+
+const gridLoadingHTML = (texto) => `
+    <div class="text-center text-muted p-xl" data-loading="1">
+        <i class="fas fa-spinner fa-spin"></i> ${texto}
+    </div>
+`;
+
+function setGridLoading(gridId, texto) {
+    const grid = document.getElementById(gridId);
+    if (grid) grid.innerHTML = gridLoadingHTML(texto);
+    // Si a los 8 s sigue cargando, avisar que el servidor está despertando
+    const token = ++loadToken;
+    setTimeout(() => {
+        if (token !== loadToken) return;
+        const g = document.getElementById(gridId);
+        if (g && g.querySelector('[data-loading]')) {
+            g.innerHTML = gridLoadingHTML('Despertando el servidor, un momento…');
+        }
+    }, 8000);
+}
+
+async function loadClientsLanding(intento = 1) {
+    setGridLoading('clientesLandingGrid', 'Cargando clientes…');
     try {
         const result = await clientesService.getAll();
+        loadToken++;
         renderClientsLanding(result.clientes);
     } catch (error) {
         console.error('Error loading clients:', error);
+        // Reintento automático una vez si fue timeout (servidor dormido)
+        if (error && error.message && error.message.includes('tardó demasiado') && intento === 1) {
+            setGridLoading('clientesLandingGrid', 'Reintentando…');
+            return loadClientsLanding(2);
+        }
+        loadToken++;
         document.getElementById('clientesLandingGrid').innerHTML = gridErrorHTML('loadClientsLanding');
         showToast('error', 'Error', 'No se pudieron cargar los clientes');
     }
@@ -107,23 +138,31 @@ function renderClientsLanding(clientes) {
 }
 
 function goToOrdenantes(remeseroId) {
-    currentRemeseroId = remeseroId;
-    const found = landingClientes.find(c => c.id === remeseroId);
-    if (found) currentRemeseroNombre = found.nombre;
-    window.history.pushState({}, '', `/ordenantes/${remeseroId}`);
-    document.getElementById('vistaClientesLanding').classList.add('hidden');
-    document.getElementById('vistaOrdenantes').classList.remove('hidden');
-    document.getElementById('backBtn').style.display = 'inline-flex';
-    document.getElementById('pageTitle').textContent = `Ordenantes - ${nombre}`;
-    loadOrdenantes();
+    try {
+        currentRemeseroId = remeseroId;
+        const found = landingClientes.find(c => c.id === remeseroId);
+        if (found) currentRemeseroNombre = found.nombre;
+        window.history.pushState({}, '', `/ordenantes/${remeseroId}`);
+        document.getElementById('vistaClientesLanding').classList.add('hidden');
+        document.getElementById('vistaOrdenantes').classList.remove('hidden');
+        document.getElementById('backBtn').style.display = 'inline-flex';
+        document.getElementById('pageTitle').textContent = `Ordenantes - ${currentRemeseroNombre}`;
+        loadOrdenantes();
+    } catch (error) {
+        console.error('Error abriendo ordenantes:', error);
+        const grid = document.getElementById('ordenantesGrid');
+        if (grid) grid.innerHTML = gridErrorHTML('loadOrdenantes');
+        showToast('error', 'Error', 'No se pudo abrir. Pulsa Reintentar.');
+    }
 }
 
 // ============================================
 // VISTA ORDENANTES
 // ============================================
-async function loadOrdenantes() {
+async function loadOrdenantes(intento = 1) {
     if (!currentRemeseroId) return;
 
+    setGridLoading('ordenantesGrid', 'Cargando ordenantes…');
     try {
         const result = await ordenantesService.getByRemesero(currentRemeseroId);
 
@@ -133,10 +172,17 @@ async function loadOrdenantes() {
         document.getElementById('remeseroAvatar').textContent = getInitials(currentRemeseroNombre);
 
         ordenantes = result.ordenantes || [];
+        loadToken++;
         renderOrdenantes();
         updateStats();
     } catch (error) {
         console.error('Error loading ordenantes:', error);
+        // Reintento automático una vez si fue timeout (servidor dormido)
+        if (error && error.message && error.message.includes('tardó demasiado') && intento === 1) {
+            setGridLoading('ordenantesGrid', 'Reintentando…');
+            return loadOrdenantes(2);
+        }
+        loadToken++;
         document.getElementById('ordenantesGrid').innerHTML = gridErrorHTML('loadOrdenantes');
         showToast('error', 'Error', 'No se pudieron cargar ordenantes');
     }
