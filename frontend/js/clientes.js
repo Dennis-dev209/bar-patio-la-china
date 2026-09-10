@@ -271,7 +271,7 @@ const viewClienteDetails = async (id) => {
                                     <span>${escapeHtml(o.pais_origen) || 'Sin país'}</span>
                                 </div>
                                 <div class="ordenante-monto">
-                                    ${formatCurrency(o.monto_total || 0)}
+                                    ${o.ultima_moneda ? escapeHtml(o.ultima_moneda) + ' ' : ''}${formatCurrency(o.monto_total_moneda ?? o.monto_total, o.ultima_moneda || 'CUP')}
                                 </div>
                             </div>
                         `).join('')}

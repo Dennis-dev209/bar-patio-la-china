@@ -70,7 +70,7 @@ const renderClientesList = (clientesList) => {
                 <div class="cliente-nombre">${escapeHtml(cliente.nombre)}</div>
                 <div class="cliente-meta">
                     <span><i class="fas fa-users"></i> ${cliente.total_ordenantes || 0} ordenantes</span>
-                    <span><i class="fas fa-money-bill"></i> ${formatCurrency(cliente.monto_total || 0)}</span>
+                    <span><i class="fas fa-money-bill"></i> ${cliente.ultima_moneda ? escapeHtml(cliente.ultima_moneda) + ' ' : ''}${formatCurrency(cliente.monto_total_moneda ?? cliente.monto_total, cliente.ultima_moneda || 'CUP')}</span>
                 </div>
             </div>
             <div class="cliente-status">
@@ -131,7 +131,7 @@ const renderOrdenantesList = (ordenantes, remeseroId) => {
                 </div>
             </div>
             <div class="ordenante-stats">
-                <div class="ordenante-monto">${formatCurrency(ordenante.monto_total || 0)}</div>
+                <div class="ordenante-monto">${ordenante.ultima_moneda ? escapeHtml(ordenante.ultima_moneda) + ' ' : ''}${formatCurrency(ordenante.monto_total_moneda ?? ordenante.monto_total, ordenante.ultima_moneda || 'CUP')}</div>
                 <div class="ordenante-depositos">${ordenante.total_remesas || 0} depósitos</div>
             </div>
             <div class="ordenante-status">

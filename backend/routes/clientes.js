@@ -78,11 +78,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
             WHERE r.id = ?
         `, [id]);
 
-        // Obtener ordenantes recientes
+        // Obtener ordenantes recientes (monto en moneda extranjera)
         const ordenantesResult = await db.query(`
             SELECT o.id, o.nombre, o.telefono, o.pais_origen,
                    COUNT(rem.id) as total_remesas,
-                   COALESCE(SUM(rem.importe_cup), 0) as monto_total
+                   COALESCE(SUM(rem.importe_cup), 0) as monto_total,
+                   COALESCE(SUM(rem.importe), 0) as monto_total_moneda,
+                   (SELECT rem2.moneda FROM remesas rem2 WHERE rem2.ordenante_id = o.id ORDER BY rem2.created_at DESC LIMIT 1) as ultima_moneda
             FROM ordenantes o
             LEFT JOIN remesas rem ON o.id = rem.ordenante_id
             WHERE o.remesero_id = ? AND o.activo = 1

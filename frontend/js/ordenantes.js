@@ -246,18 +246,29 @@ function renderOrdenantes() {
 function updateStats() {
     const total = ordenantes.length;
     const totalRemesas = ordenantes.reduce((sum, o) => sum + (o.total_remesas || 0), 0);
-    const pendiente = ordenantes.reduce((sum, o) => sum + (o.monto_pendiente || 0), 0);
-    const confirmado = ordenantes.reduce((sum, o) => sum + (o.monto_confirmado || 0), 0);
+
+    // Agrupar montos por moneda extranjera (no se suman monedas distintas)
+    const grupos = {};
+    ordenantes.forEach(o => {
+        const mon = o.ultima_moneda || 'CUP';
+        if (!grupos[mon]) grupos[mon] = { pendiente: 0, confirmado: 0 };
+        grupos[mon].pendiente += (o.monto_pendiente_moneda ?? o.monto_pendiente) || 0;
+        grupos[mon].confirmado += (o.monto_confirmado_moneda ?? o.monto_confirmado) || 0;
+    });
+    const lineas = (campo) => Object.keys(grupos).sort()
+        .map(mon => `${escapeHtml(mon)} ${formatCurrency(grupos[mon][campo], mon)}`)
+        .join('<br>');
+    const hayPendiente = Object.values(grupos).some(g => g.pendiente > 0);
 
     document.getElementById('totalOrdenantes').textContent = total;
     document.getElementById('totalRemesas').textContent = totalRemesas;
-    document.getElementById('montoPendiente').textContent = formatCurrency(pendiente, 'CUP');
-    document.getElementById('montoConfirmado').textContent = formatCurrency(confirmado, 'CUP');
+    document.getElementById('montoPendiente').innerHTML = lineas('pendiente');
+    document.getElementById('montoConfirmado').innerHTML = lineas('confirmado');
 
     document.getElementById('remeseroStats').innerHTML = `
         <span>${total} ordenante${total !== 1 ? 's' : ''}</span> &bull;
         <span>${totalRemesas} remesa${totalRemesas !== 1 ? 's' : ''}</span> &bull;
-        <span class="${pendiente > 0 ? 'text-yellow' : 'text-green'}">${formatCurrency(pendiente, 'CUP')} pendiente</span>
+        <span class="${hayPendiente ? 'text-yellow' : 'text-green'}">${lineas('pendiente')} pendiente</span>
     `;
 }
 
