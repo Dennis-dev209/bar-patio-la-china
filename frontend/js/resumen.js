@@ -34,12 +34,12 @@ const loadReportData = async () => {
     try {
         // Mostrar loading
         document.getElementById('periodoTableBody').innerHTML = `
-            <tr><td colspan="7" class="text-center text-muted">
+            <tr><td colspan="8" class="text-center text-muted">
                 <i class="fas fa-spinner fa-spin"></i> Cargando datos...
             </td></tr>
         `;
         document.getElementById('remeseroTableBody').innerHTML = `
-            <tr><td colspan="7" class="text-center text-muted">
+            <tr><td colspan="8" class="text-center text-muted">
                 <i class="fas fa-spinner fa-spin"></i> Cargando datos...
             </td></tr>
         `;
@@ -127,13 +127,14 @@ const renderPeriodoTable = (data) => {
     
     tbody.innerHTML = data.map(row => `
         <tr>
-            <td><strong>${row.periodo}</strong></td>
+            <td><strong>${escapeHtml(row.periodo)}</strong></td>
+            <td>${escapeHtml(row.moneda) || '—'}</td>
             <td>${row.total_remesas}</td>
             <td>${row.confirmadas}</td>
             <td>${row.pendientes}</td>
-            <td>${formatCurrency(row.monto_total)}</td>
-            <td class="text-success">${formatCurrency(row.monto_confirmado)}</td>
-            <td class="text-warning">${formatCurrency(row.monto_pendiente)}</td>
+            <td>${formatCurrency(row.monto_total, row.moneda)}</td>
+            <td class="text-success">${formatCurrency(row.monto_confirmado, row.moneda)}</td>
+            <td class="text-warning">${formatCurrency(row.monto_pendiente, row.moneda)}</td>
         </tr>
     `).join('');
 };
@@ -159,12 +160,13 @@ const renderRemeseroTable = (data) => {
     tbody.innerHTML = data.map(row => `
         <tr>
             <td><strong>${escapeHtml(row.nombre)}</strong></td>
+            <td>${escapeHtml(row.moneda) || '—'}</td>
             <td>${row.total_remesas}</td>
             <td>${row.confirmadas}</td>
             <td>${row.pendientes}</td>
-            <td>${formatCurrency(row.monto_total)}</td>
-            <td class="text-success">${formatCurrency(row.monto_confirmado)}</td>
-            <td class="text-warning">${formatCurrency(row.monto_pendiente)}</td>
+            <td>${formatCurrency(row.monto_total, row.moneda)}</td>
+            <td class="text-success">${formatCurrency(row.monto_confirmado, row.moneda)}</td>
+            <td class="text-warning">${formatCurrency(row.monto_pendiente, row.moneda)}</td>
         </tr>
     `).join('');
 };
@@ -177,27 +179,33 @@ const exportToExcel = () => {
     try {
         const wb = XLSX.utils.book_new();
         
-        // Hoja de resumen
+        // Hoja de resumen (montos en moneda extranjera, una fila por moneda)
         const resumenData = [
             ['RESUMEN DE REMESAS'],
             ['Bar Patio La China'],
             [''],
-            ['Concepto', 'Monto'],
-            ['Total Recibido', reportData.resumen.monto_total],
-            ['Confirmado', reportData.resumen.monto_confirmado],
-            ['Pendiente', reportData.resumen.monto_pendiente],
-            ['Total Remesas', reportData.resumen.total_remesas],
-            ['Remesas Confirmadas', reportData.resumen.remesas_confirmadas],
-            ['Remesas Pendientes', reportData.resumen.remesas_pendientes]
+            ['Concepto', 'Moneda', 'Monto'],
+            ...(reportData.porMoneda.length > 0
+                ? reportData.porMoneda.flatMap(m => [
+                    [`Total Recibido`, m.moneda, m.monto_total],
+                    [`Confirmado`, m.moneda, m.monto_confirmado],
+                    [`Pendiente`, m.moneda, m.monto_pendiente]
+                ])
+                : [['Total Recibido', 'CUP', reportData.resumen.monto_total],
+                   ['Confirmado', 'CUP', reportData.resumen.monto_confirmado],
+                   ['Pendiente', 'CUP', reportData.resumen.monto_pendiente]]),
+            ['Total Remesas', '', reportData.resumen.total_remesas],
+            ['Remesas Confirmadas', '', reportData.resumen.remesas_confirmadas],
+            ['Remesas Pendientes', '', reportData.resumen.remesas_pendientes]
         ];
         const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
         XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
         
         // Hoja por período
         if (reportData.porPeriodo.length > 0) {
-            const periodoHeaders = ['Período', 'Total Remesas', 'Confirmadas', 'Pendientes', 'Monto Total', 'Monto Confirmado', 'Monto Pendiente'];
+            const periodoHeaders = ['Período', 'Moneda', 'Total Remesas', 'Confirmadas', 'Pendientes', 'Monto Total', 'Monto Confirmado', 'Monto Pendiente'];
             const periodoData = [periodoHeaders, ...reportData.porPeriodo.map(row => [
-                row.periodo, row.total_remesas, row.confirmadas, row.pendientes,
+                row.periodo, row.moneda || '—', row.total_remesas, row.confirmadas, row.pendientes,
                 row.monto_total, row.monto_confirmado, row.monto_pendiente
             ])];
             const wsPeriodo = XLSX.utils.aoa_to_sheet(periodoData);
@@ -206,9 +214,9 @@ const exportToExcel = () => {
         
         // Hoja por remesero
         if (reportData.porRemesero.length > 0) {
-            const remeseroHeaders = ['Cliente', 'Total Remesas', 'Confirmadas', 'Pendientes', 'Monto Total', 'Monto Confirmado', 'Monto Pendiente'];
+            const remeseroHeaders = ['Cliente', 'Moneda', 'Total Remesas', 'Confirmadas', 'Pendientes', 'Monto Total', 'Monto Confirmado', 'Monto Pendiente'];
             const remeseroData = [remeseroHeaders, ...reportData.porRemesero.map(row => [
-                row.nombre, row.total_remesas, row.confirmadas, row.pendientes,
+                row.nombre, row.moneda || '—', row.total_remesas, row.confirmadas, row.pendientes,
                 row.monto_total, row.monto_confirmado, row.monto_pendiente
             ])];
             const wsRemesero = XLSX.utils.aoa_to_sheet(remeseroData);
@@ -252,12 +260,16 @@ const exportToPDF = () => {
         y += 10;
         
         doc.setFontSize(10);
-        doc.text(`Total Recibido: ${formatCurrency(reportData.resumen.monto_total || 0)}`, 20, y);
-        y += 7;
-        doc.text(`Confirmado: ${formatCurrency(reportData.resumen.monto_confirmado || 0)}`, 20, y);
-        y += 7;
-        doc.text(`Pendiente: ${formatCurrency(reportData.resumen.monto_pendiente || 0)}`, 20, y);
-        y += 7;
+        const lineasResumen = reportData.porMoneda.length > 0
+            ? reportData.porMoneda.flatMap(m => [
+                `Total Recibido (${m.moneda}): ${formatCurrency(m.monto_total || 0, m.moneda)}`,
+                `Confirmado (${m.moneda}): ${formatCurrency(m.monto_confirmado || 0, m.moneda)}`,
+                `Pendiente (${m.moneda}): ${formatCurrency(m.monto_pendiente || 0, m.moneda)}`
+            ])
+            : [`Total Recibido: ${formatCurrency(reportData.resumen.monto_total || 0, 'CUP')}`,
+               `Confirmado: ${formatCurrency(reportData.resumen.monto_confirmado || 0, 'CUP')}`,
+               `Pendiente: ${formatCurrency(reportData.resumen.monto_pendiente || 0, 'CUP')}`];
+        lineasResumen.forEach(linea => { doc.text(linea, 20, y); y += 7; });
         doc.text(`Total Remesas: ${reportData.resumen.total_remesas || 0}`, 20, y);
         y += 7;
         doc.text(`Confirmadas: ${reportData.resumen.remesas_confirmadas || 0}`, 20, y);
@@ -287,10 +299,10 @@ const exportToPDF = () => {
                     y = 20;
                 }
                 doc.text(row.nombre || '', 20, y);
-                doc.text(String(row.total_remesas || 0), 80, y);
-                doc.text(String(row.confirmadas || 0), 105, y);
-                doc.text(String(row.pendientes || 0), 135, y);
-                doc.text(formatCurrency(row.monto_total || 0), 165, y);
+                doc.text(String(row.total_remesas || 0), 75, y);
+                doc.text(String(row.confirmadas || 0), 95, y);
+                doc.text(String(row.pendientes || 0), 120, y);
+                doc.text(`${row.moneda || '—'} ${formatCurrency(row.monto_total || 0, row.moneda)}`, 145, y);
                 y += 7;
             });
         }

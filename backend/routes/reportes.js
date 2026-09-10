@@ -79,13 +79,15 @@ router.get('/por-periodo', authenticateToken, async (req, res) => {
                 dateFormat = '%Y-%m';
         }
 
+        // Montos en moneda extranjera (importe sin convertir), una fila por moneda
         let query = `
-            SELECT 
+            SELECT
                 ${groupBy} as periodo,
+                rem.moneda as moneda,
                 COUNT(*) as total_remesas,
-                COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe_cup ELSE 0 END), 0) as monto_pendiente,
-                COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN importe_cup ELSE 0 END), 0) as monto_confirmado,
-                COALESCE(SUM(importe_cup), 0) as monto_total,
+                COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe ELSE 0 END), 0) as monto_pendiente,
+                COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN importe ELSE 0 END), 0) as monto_confirmado,
+                COALESCE(SUM(importe), 0) as monto_total,
                 COUNT(CASE WHEN estado = 'pendiente' THEN 1 END) as pendientes,
                 COUNT(CASE WHEN estado = 'confirmado' THEN 1 END) as confirmadas
             FROM remesas rem
@@ -103,7 +105,7 @@ router.get('/por-periodo', authenticateToken, async (req, res) => {
             params.push(fecha_fin);
         }
 
-        query += ` GROUP BY ${groupBy} ORDER BY periodo DESC`;
+        query += ` GROUP BY ${groupBy}, rem.moneda ORDER BY periodo DESC, rem.moneda ASC`;
 
         const result = await db.query(query, params);
 
@@ -123,14 +125,16 @@ router.get('/por-remesero', authenticateToken, async (req, res) => {
     try {
         const { fecha_inicio, fecha_fin } = req.query;
 
+        // Montos en moneda extranjera (importe sin convertir), una fila por moneda
         let query = `
-            SELECT 
+            SELECT
                 r.id,
                 r.nombre,
+                rem.moneda as moneda,
                 COUNT(rem.id) as total_remesas,
-                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe_cup ELSE 0 END), 0) as monto_pendiente,
-                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe_cup ELSE 0 END), 0) as monto_confirmado,
-                COALESCE(SUM(rem.importe_cup), 0) as monto_total,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe ELSE 0 END), 0) as monto_pendiente,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe ELSE 0 END), 0) as monto_confirmado,
+                COALESCE(SUM(rem.importe), 0) as monto_total,
                 COUNT(CASE WHEN rem.estado = 'pendiente' THEN 1 END) as pendientes,
                 COUNT(CASE WHEN rem.estado = 'confirmado' THEN 1 END) as confirmadas
             FROM remeseros r
@@ -153,7 +157,7 @@ router.get('/por-remesero', authenticateToken, async (req, res) => {
             query += ` WHERE ${conditions.join(' AND ')}`;
         }
 
-        query += ` GROUP BY r.id, r.nombre ORDER BY monto_total DESC`;
+        query += ` GROUP BY r.id, r.nombre, rem.moneda ORDER BY monto_total DESC`;
 
         const result = await db.query(query, params);
 
@@ -183,18 +187,29 @@ router.get('/pendientes', authenticateToken, async (req, res) => {
             ORDER BY rem.fecha_deposito ASC
         `);
 
-        // Calcular totales
+        // Calcular totales (desglose por moneda extranjera para el badge)
         const totales = await db.query(`
-            SELECT 
+            SELECT
                 COUNT(*) as cantidad,
                 COALESCE(SUM(importe_cup), 0) as monto_total
             FROM remesas
             WHERE estado = 'pendiente'
         `);
 
+        const totalesMoneda = await db.query(`
+            SELECT
+                moneda,
+                COUNT(*) as cantidad,
+                COALESCE(SUM(importe), 0) as monto_total
+            FROM remesas
+            WHERE estado = 'pendiente'
+            GROUP BY moneda
+        `);
+
         res.json({
             pendientes: result.rows,
-            totales: totales.rows[0]
+            totales: totales.rows[0],
+            totales_por_moneda: totalesMoneda.rows
         });
 
     } catch (error) {
