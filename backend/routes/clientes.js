@@ -20,10 +20,14 @@ router.get('/', authenticateToken, async (req, res) => {
                 COUNT(DISTINCT o.id) as total_ordenantes,
                 COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe_cup ELSE 0 END), 0) as monto_pendiente,
                 COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe_cup ELSE 0 END), 0) as monto_confirmado,
-                COALESCE(SUM(rem.importe_cup), 0) as monto_total
+                COALESCE(SUM(rem.importe_cup), 0) as monto_total,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe ELSE 0 END), 0) as monto_pendiente_moneda,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe ELSE 0 END), 0) as monto_confirmado_moneda,
+                COALESCE(SUM(rem.importe), 0) as monto_total_moneda,
+                (SELECT rem2.moneda FROM remesas rem2 JOIN ordenantes o2 ON rem2.ordenante_id = o2.id AND o2.activo = 1 WHERE rem2.remesero_id = r.id ORDER BY rem2.created_at DESC LIMIT 1) as ultima_moneda
             FROM remeseros r
             LEFT JOIN ordenantes o ON r.id = o.remesero_id AND o.activo = 1
-            LEFT JOIN remesas rem ON r.id = rem.remesero_id
+            LEFT JOIN remesas rem ON o.id = rem.ordenante_id
             GROUP BY r.id, r.nombre, r.telefono, r.descripcion, r.activo, r.created_at
             ORDER BY r.nombre ASC
         `);
@@ -58,15 +62,19 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
         // Obtener estadísticas
         const statsResult = await db.query(`
-            SELECT 
+            SELECT
                 COUNT(DISTINCT o.id) as total_ordenantes,
                 COUNT(rem.id) as total_remesas,
                 COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe_cup ELSE 0 END), 0) as monto_pendiente,
                 COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe_cup ELSE 0 END), 0) as monto_confirmado,
-                COALESCE(SUM(rem.importe_cup), 0) as monto_total
+                COALESCE(SUM(rem.importe_cup), 0) as monto_total,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe ELSE 0 END), 0) as monto_pendiente_moneda,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe ELSE 0 END), 0) as monto_confirmado_moneda,
+                COALESCE(SUM(rem.importe), 0) as monto_total_moneda,
+                (SELECT rem2.moneda FROM remesas rem2 JOIN ordenantes o2 ON rem2.ordenante_id = o2.id AND o2.activo = 1 WHERE rem2.remesero_id = r.id ORDER BY rem2.created_at DESC LIMIT 1) as ultima_moneda
             FROM remeseros r
             LEFT JOIN ordenantes o ON r.id = o.remesero_id AND o.activo = 1
-            LEFT JOIN remesas rem ON r.id = rem.remesero_id
+            LEFT JOIN remesas rem ON o.id = rem.ordenante_id
             WHERE r.id = ?
         `, [id]);
 

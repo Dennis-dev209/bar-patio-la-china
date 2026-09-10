@@ -34,6 +34,12 @@ const loadClientes = async () => {
         renderClientes(allClientes);
     } catch (error) {
         console.error('Error al cargar clientes:', error);
+        document.getElementById('clientesGrid').innerHTML = `
+            <div class="text-center text-muted p-xl">
+                <i class="fas fa-exclamation-triangle"></i> No se pudo cargar. Revisa tu conexión.
+                <br><br>
+                <button class="btn btn-primary" onclick="loadClientes()">Reintentar</button>
+            </div>`;
         showToast('error', 'Error', 'No se pudieron cargar los clientes');
     }
 };
@@ -59,7 +65,9 @@ const renderClientes = (clientes) => {
         return;
     }
     
-    grid.innerHTML = clientes.map(cliente => `
+    grid.innerHTML = clientes.map(cliente => {
+        try {
+            return `
         <div class="cliente-card" onclick="viewClienteDetails(${cliente.id})">
             <div class="cliente-avatar">
                 ${escapeHtml(getInitials(cliente.nombre))}
@@ -76,8 +84,8 @@ const renderClientes = (clientes) => {
                 </div>
             </div>
             <div class="cliente-montos">
-                <div class="monto-total">${formatCurrency(cliente.monto_total || 0)}</div>
-                <div class="monto-label">Total</div>
+                <div class="monto-total">${formatCurrency(cliente.monto_total_moneda ?? cliente.monto_total, cliente.ultima_moneda || 'CUP')}</div>
+                <div class="monto-label">Total${cliente.ultima_moneda ? ' ' + escapeHtml(cliente.ultima_moneda) : ''}</div>
                 <div class="status-indicator ${cliente.activo ? 'confirmed' : 'pending'}">
                     <span class="status-dot"></span>
                     ${cliente.activo ? 'Activo' : 'Inactivo'}
@@ -107,7 +115,12 @@ const renderClientes = (clientes) => {
                 </div>
             </div>
         </div>
-    `).join('');
+            `;
+        } catch (e) {
+            console.error('Error renderizando cliente', cliente && cliente.id, e);
+            return '';
+        }
+    }).join('');
 };
 
 // ============================================
@@ -233,8 +246,8 @@ const viewClienteDetails = async (id) => {
                             <i class="fas fa-clock"></i>
                         </div>
                         <div class="stat-content">
-                            <div class="stat-label">Pendiente</div>
-                            <div class="stat-value">${formatCurrency(stats.monto_pendiente || 0)}</div>
+                            <div class="stat-label">Pendiente (${escapeHtml(stats.ultima_moneda || 'CUP')})</div>
+                            <div class="stat-value">${formatCurrency(stats.monto_pendiente_moneda ?? stats.monto_pendiente, stats.ultima_moneda || 'CUP')}</div>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -242,8 +255,8 @@ const viewClienteDetails = async (id) => {
                             <i class="fas fa-check-circle"></i>
                         </div>
                         <div class="stat-content">
-                            <div class="stat-label">Confirmado</div>
-                            <div class="stat-value">${formatCurrency(stats.monto_confirmado || 0)}</div>
+                            <div class="stat-label">Confirmado (${escapeHtml(stats.ultima_moneda || 'CUP')})</div>
+                            <div class="stat-value">${formatCurrency(stats.monto_confirmado_moneda ?? stats.monto_confirmado, stats.ultima_moneda || 'CUP')}</div>
                         </div>
                     </div>
                 </div>
@@ -411,6 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Exportar funciones
+window.loadClientes = loadClientes;
 window.toggleSidebar = toggleSidebar;
 window.toggleDropdown = toggleDropdown;
 window.openAddClienteModal = openAddClienteModal;

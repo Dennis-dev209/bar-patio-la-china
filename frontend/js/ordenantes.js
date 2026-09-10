@@ -43,9 +43,10 @@ function loadUserInfo() {
 }
 
 function checkPending() {
-    api.get('/reportes/resumen')
+    // Conteo liviano (1 query) en vez del resumen completo
+    api.get('/remesas/pendientes/count')
         .then(result => {
-            const pendientes = result?.resumen?.remesas_pendientes || 0;
+            const pendientes = result?.pendientes?.total || 0;
             document.getElementById('pendingBadge').textContent = pendientes;
         })
         .catch(error => {
@@ -56,12 +57,21 @@ function checkPending() {
 // ============================================
 // VISTA LANDING: Lista de clientes
 // ============================================
+const gridErrorHTML = (retryFn) => `
+    <div class="text-center text-muted p-xl">
+        <i class="fas fa-exclamation-triangle"></i> No se pudo cargar. Revisa tu conexión.
+        <br><br>
+        <button class="btn btn-primary" onclick="${retryFn}()">Reintentar</button>
+    </div>
+`;
+
 async function loadClientsLanding() {
     try {
         const result = await clientesService.getAll();
         renderClientsLanding(result.clientes);
     } catch (error) {
         console.error('Error loading clients:', error);
+        document.getElementById('clientesLandingGrid').innerHTML = gridErrorHTML('loadClientsLanding');
         showToast('error', 'Error', 'No se pudieron cargar los clientes');
     }
 }
@@ -77,7 +87,9 @@ function renderClientsLanding(clientes) {
         return;
     }
 
-    grid.innerHTML = clientes.map(c => `
+    grid.innerHTML = clientes.map(c => {
+        try {
+            return `
         <div class="client-card" onclick="goToOrdenantes(${c.id})">
             <div class="client-avatar">${escapeHtml(getInitials(c.nombre))}</div>
             <div class="client-name">${escapeHtml(c.nombre)}</div>
@@ -86,7 +98,12 @@ function renderClientsLanding(clientes) {
                 <span><i class="fas fa-user-friends"></i> ${c.total_ordenantes || 0} ordenantes</span>
             </div>
         </div>
-    `).join('');
+            `;
+        } catch (e) {
+            console.error('Error renderizando cliente', c && c.id, e);
+            return '';
+        }
+    }).join('');
 }
 
 function goToOrdenantes(remeseroId) {
@@ -120,6 +137,7 @@ async function loadOrdenantes() {
         updateStats();
     } catch (error) {
         console.error('Error loading ordenantes:', error);
+        document.getElementById('ordenantesGrid').innerHTML = gridErrorHTML('loadOrdenantes');
         showToast('error', 'Error', 'No se pudieron cargar ordenantes');
     }
 }
@@ -133,6 +151,7 @@ function renderOrdenantes() {
     }
 
     grid.innerHTML = ordenantes.map(o => {
+        try {
         const totalRemesas = o.total_remesas || 0;
         const moneda = o.ultima_moneda || 'CUP';
         const montoTotal = o.monto_total || 0;
@@ -169,6 +188,10 @@ function renderOrdenantes() {
             <div class="ordenante-monto ${montoPendiente > 0 ? 'pendiente' : ''}">${formatCurrency(o.monto_total_moneda ?? montoTotal, moneda)}</div>
         </div>
     `;
+        } catch (e) {
+            console.error('Error renderizando ordenante', o && o.id, e);
+            return '';
+        }
     }).join('');
 }
 
