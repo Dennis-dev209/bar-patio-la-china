@@ -91,6 +91,8 @@ router.get('/por-periodo', authenticateToken, async (req, res) => {
                 COUNT(CASE WHEN estado = 'pendiente' THEN 1 END) as pendientes,
                 COUNT(CASE WHEN estado = 'confirmado' THEN 1 END) as confirmadas
             FROM remesas rem
+            JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
+            JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
             WHERE 1=1
         `;
         const params = [];
@@ -140,7 +142,8 @@ router.get('/por-remesero', authenticateToken, async (req, res) => {
             FROM remeseros r
             LEFT JOIN remesas rem ON r.id = rem.remesero_id
         `;
-        const conditions = [];
+        // Solo remeseros activos (los eliminados no aparecen en reportes)
+        const conditions = ['r.activo = 1'];
         const params = [];
 
         if (fecha_inicio) {
