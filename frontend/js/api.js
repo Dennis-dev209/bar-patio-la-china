@@ -36,9 +36,16 @@ const apiRequest = async (endpoint, options = {}) => {
         }
     };
     
+    // Timeout: si el servidor está despertando (plan gratis) la petición
+    // puede colgar. A los 30 s se aborta para mostrar Reintentar en vez
+    // de un "cargando" eterno (al reintentar el servidor ya despertó).
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-        
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...config, signal: controller.signal });
+        clearTimeout(timeoutId);
+
         // Si el token expiró o es inválido
         if (response.status === 401 || response.status === 403) {
             localStorage.removeItem('token');
@@ -66,9 +73,13 @@ const apiRequest = async (endpoint, options = {}) => {
         }
 
         return data;
-        
+
     } catch (error) {
+        clearTimeout(timeoutId);
         console.error('API Error:', error);
+        if (error && error.name === 'AbortError') {
+            throw new Error('El servidor tardó demasiado en responder. Pulsa Reintentar.');
+        }
         throw error;
     }
 };

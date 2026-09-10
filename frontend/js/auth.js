@@ -130,14 +130,19 @@ const handleLogin = async (e) => {
     // Mostrar loading
     setLoading(loginBtn, true);
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         const data = await parseJsonSafe(response);
 
@@ -155,9 +160,14 @@ const handleLogin = async (e) => {
         
         // Redirigir al dashboard
         window.location.href = '/inicio';
-        
+
     } catch (error) {
-        showError(loginError, error.message);
+        clearTimeout(timeoutId);
+        if (error && error.name === 'AbortError') {
+            showError(loginError, 'El servidor está despertando. Espera unos segundos e intenta de nuevo.');
+        } else {
+            showError(loginError, error.message);
+        }
     } finally {
         setLoading(loginBtn, false);
     }
