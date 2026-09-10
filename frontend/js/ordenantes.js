@@ -204,8 +204,8 @@ function renderOrdenantes() {
         const montoPendiente = o.monto_pendiente || 0;
 
         return `
-        <div class="ordenante-card">
-            <div class="ordenante-menu-container">
+        <div class="ordenante-card" onclick="showDetalles(${o.id})">
+            <div class="ordenante-menu-container" onclick="event.stopPropagation()">
                 <button class="ordenante-menu-btn" onclick="toggleOrdenanteMenu(event, ${o.id})">
                     <i class="fas fa-ellipsis-v"></i>
                 </button>
