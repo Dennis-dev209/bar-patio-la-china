@@ -24,7 +24,7 @@ const authenticateToken = async (req, res, next) => {
         // Lazy require para evitar cualquier ciclo de dependencias
         const { db } = require('../config/database');
         const result = await db.query(
-            'SELECT id, activo FROM usuarios WHERE id = ?',
+            'SELECT id, activo, rol FROM usuarios WHERE id = ?',
             [decoded.id]
         );
 
@@ -32,6 +32,9 @@ const authenticateToken = async (req, res, next) => {
             return res.status(403).json({ error: 'Cuenta desactivada o eliminada' });
         }
 
+        // Rol fresco desde la BD: un cambio de rol (o degradación) aplica
+        // de inmediato, sin esperar a que el token expire (24 h)
+        decoded.rol = result.rows[0].rol;
         req.user = decoded;
         next();
     } catch (error) {

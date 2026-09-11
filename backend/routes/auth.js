@@ -347,7 +347,10 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
 
 // ============================================
 // DELETE /api/auth/users/:id
-// Eliminar usuario (solo admin, no puede eliminarse a sí mismo)
+// Desactivar usuario (solo admin, no puede desactivarse a sí mismo).
+// Es borrado SUAVE (activo=0): el borrado físico falla por las claves
+// foráneas (auditoría, confirmaciones) y rompería el historial.
+// Un usuario inactivo no puede entrar (lo bloquea authenticateToken).
 // ============================================
 router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
@@ -359,22 +362,47 @@ router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) =>
         }
 
         // Verificar que el usuario existe
-        const userCheck = await db.query('SELECT id, nombre FROM usuarios WHERE id = ?', [id]);
+        const userCheck = await db.query('SELECT id, nombre, activo FROM usuarios WHERE id = ?', [id]);
         if (userCheck.rows.length === 0) {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
 
-        // Eliminar usuario
-        await db.query('DELETE FROM usuarios WHERE id = ?', [id]);
+        // Desactivar (borrado suave)
+        await db.query('UPDATE usuarios SET activo = 0 WHERE id = ?', [id]);
 
         // Registrar auditoría
-        logAudit(db, req.user.id, 'delete', 'usuarios', parseInt(id), null, null, req.ip);
+        logAudit(db, req.user.id, 'desactivar', 'usuarios', parseInt(id), userCheck.rows[0], null, req.ip);
 
-        res.json({ message: 'Usuario eliminado exitosamente' });
+        res.json({ message: 'Usuario desactivado exitosamente' });
 
     } catch (error) {
         console.error('Error al eliminar usuario:', error);
         res.status(500).json({ error: 'Error al eliminar usuario' });
+    }
+});
+
+// ============================================
+// PUT /api/auth/users/:id/activar
+// Reactivar usuario desactivado (solo admin)
+// ============================================
+router.put('/users/:id/activar', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const userCheck = await db.query('SELECT id FROM usuarios WHERE id = ?', [id]);
+        if (userCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        await db.query('UPDATE usuarios SET activo = 1 WHERE id = ?', [id]);
+
+        logAudit(db, req.user.id, 'reactivar', 'usuarios', parseInt(id), null, null, req.ip);
+
+        res.json({ message: 'Usuario reactivado exitosamente' });
+
+    } catch (error) {
+        console.error('Error al reactivar usuario:', error);
+        res.status(500).json({ error: 'Error al reactivar usuario' });
     }
 });
 

@@ -91,17 +91,23 @@ const renderUsuarios = (usuariosList) => {
             <td>${formatDate(usuario.created_at)}</td>
             <td>
                 <div class="actions-cell">
-                    ${usuario.rol !== 'admin' ? `
-                        <button class="btn btn-sm btn-outline" onclick="changeRole(${usuario.id}, 'empleado')" title="Empleado">
-                            <i class="fas fa-user"></i>
+                    ${!usuario.activo ? `
+                        <button class="btn btn-sm btn-outline" onclick="activateUser(${usuario.id})" title="Restaurar acceso">
+                            <i class="fas fa-undo"></i>
                         </button>
-                        <button class="btn btn-sm btn-outline" onclick="changeRole(${usuario.id}, 'admin')" title="Hacer Admin">
-                            <i class="fas fa-user-shield"></i>
+                    ` : `
+                        ${usuario.rol !== 'admin' ? `
+                            <button class="btn btn-sm btn-outline" onclick="changeRole(${usuario.id}, 'empleado')" title="Empleado">
+                                <i class="fas fa-user"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline" onclick="changeRole(${usuario.id}, 'admin')" title="Hacer Admin">
+                                <i class="fas fa-user-shield"></i>
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-sm btn-danger" onclick="deleteUser(${usuario.id})" title="Desactivar">
+                            <i class="fas fa-trash"></i>
                         </button>
-                    ` : ''}
-                    <button class="btn btn-sm btn-danger" onclick="deleteUser(${usuario.id})" title="Eliminar">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    `}
                 </div>
             </td>
         </tr>
@@ -167,15 +173,29 @@ const changeRole = async (userId, newRole) => {
 const deleteUser = async (userId) => {
     const found = usuarios.find(u => u.id === userId);
     const userName = found ? found.nombre : '';
-    const confirmed = await showConfirm(`¿Eliminar al usuario "${userName}"? Esta acción no se puede deshacer.`);
+    const confirmed = await showConfirm(`¿Desactivar al usuario "${userName}"? No podrá entrar, pero su historial se conserva.`);
     if (!confirmed) return;
-    
+
     try {
         await api.delete(`/auth/users/${userId}`);
-        showToast('success', 'Éxito', 'Usuario eliminado correctamente');
+        showToast('success', 'Éxito', 'Usuario desactivado correctamente');
         loadUsuarios();
     } catch (error) {
         showToast('error', 'Error', error.message || 'No se pudo eliminar el usuario');
+    }
+};
+
+// ============================================
+// REACTIVAR USUARIO
+// ============================================
+
+const activateUser = async (userId) => {
+    try {
+        await api.put(`/auth/users/${userId}/activar`, {});
+        showToast('success', 'Éxito', 'Usuario reactivado correctamente');
+        loadUsuarios();
+    } catch (error) {
+        showToast('error', 'Error', error.message || 'No se pudo reactivar el usuario');
     }
 };
 
@@ -244,3 +264,4 @@ window.closeCreateModal = closeCreateModal;
 window.createUser = createUser;
 window.changeRole = changeRole;
 window.deleteUser = deleteUser;
+window.activateUser = activateUser;
