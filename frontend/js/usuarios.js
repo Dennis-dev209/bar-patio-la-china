@@ -96,9 +96,11 @@ const renderUsuarios = (usuariosList) => {
                             <i class="fas fa-undo"></i>
                         </button>
                     ` : `
-                        <button class="btn btn-sm btn-ghost" onclick="openChangeEmployeePasswordModal(${usuario.id})" title="Cambiar contraseña del empleado">
-                            <i class="fas fa-key"></i>
-                        </button>
+                        ${usuario.rol === 'empleado' ? `
+                            <button class="btn btn-sm btn-ghost" onclick="openChangeEmployeePasswordModal(${usuario.id})" title="Cambiar contraseña del empleado">
+                                <i class="fas fa-key"></i>
+                            </button>
+                        ` : ''}
                         ${usuario.rol !== 'admin' ? `
                             <button class="btn btn-sm btn-outline" onclick="changeRole(${usuario.id}, 'empleado')" title="Empleado">
                                 <i class="fas fa-user"></i>
