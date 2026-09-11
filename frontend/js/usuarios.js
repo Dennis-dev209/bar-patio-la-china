@@ -96,6 +96,9 @@ const renderUsuarios = (usuariosList) => {
                             <i class="fas fa-undo"></i>
                         </button>
                     ` : `
+                        <button class="btn btn-sm btn-ghost" onclick="openChangeEmployeePasswordModal(${usuario.id})" title="Cambiar contraseña del empleado">
+                            <i class="fas fa-key"></i>
+                        </button>
                         ${usuario.rol !== 'admin' ? `
                             <button class="btn btn-sm btn-outline" onclick="changeRole(${usuario.id}, 'empleado')" title="Empleado">
                                 <i class="fas fa-user"></i>
@@ -228,14 +231,49 @@ const logout = () => {
 const changePassword = () => {
     const newPassword = prompt('Ingresa tu nueva contraseña:');
     if (newPassword && newPassword.length >= 6) {
-        api.put('/auth/change-password', { 
+        api.put('/auth/change-password', {
             currentPassword: prompt('Confirma tu contraseña actual:'),
-            newPassword 
+            newPassword
         }).then(() => {
             showToast('success', 'Éxito', 'Contraseña actualizada');
         }).catch(err => {
             showToast('error', 'Error', err.message || 'No se pudo cambiar la contraseña');
         });
+    }
+};
+
+// ============================================
+// CAMBIAR CONTRASEÑA DE EMPLEADO (ADMIN)
+// ============================================
+
+const openChangeEmployeePasswordModal = (userId) => {
+    document.getElementById('changeEmployeePasswordUserId').value = userId;
+    document.getElementById('changeEmployeePasswordInput').value = '';
+    document.getElementById('changeEmployeePasswordModal').classList.add('active');
+};
+
+const closeChangeEmployeePasswordModal = () => {
+    document.getElementById('changeEmployeePasswordModal').classList.remove('active');
+    document.getElementById('changeEmployeePasswordForm').reset();
+};
+
+const saveEmployeePassword = async (e) => {
+    e.preventDefault();
+    const userId = document.getElementById('changeEmployeePasswordUserId').value;
+    const newPassword = document.getElementById('changeEmployeePasswordInput').value;
+
+    if (!newPassword || newPassword.length < 8) {
+        showToast('warning', 'Atención', 'La contraseña debe tener al menos 8 caracteres');
+        return;
+    }
+
+    try {
+        await api.put(`/auth/users/${userId}/password`, { newPassword });
+        showToast('success', 'Éxito', 'Contraseña del empleado actualizada');
+        closeChangeEmployeePasswordModal();
+        loadUsuarios();
+    } catch (error) {
+        showToast('error', 'Error', error.message || 'No se pudo cambiar la contraseña');
     }
 };
 
@@ -255,6 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Exportar funciones
+window.changeEmployeePassword = openChangeEmployeePasswordModal;
+window.closeChangeEmployeePasswordModal = closeChangeEmployeePasswordModal;
+window.saveEmployeePassword = saveEmployeePassword;
 window.toggleSidebar = toggleSidebar;
 window.toggleDropdown = toggleDropdown;
 window.logout = logout;

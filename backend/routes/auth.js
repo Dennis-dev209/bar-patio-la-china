@@ -444,4 +444,60 @@ router.put('/users/:id/role', authenticateToken, requireAdmin, async (req, res) 
     }
 });
 
+// ============================================
+// PUT /api/auth/users/:id/password
+// Admin cambia contraseña de empleado (solo empleados, no admins ni sí mismo)
+// ============================================
+router.put('/users/:id/password', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { newPassword } = req.body;
+
+        // No puede cambiar su propia contraseña con este endpoint (usar /change-password)
+        if (parseInt(id) === req.user.id) {
+            return res.status(400).json({ error: 'Usa /change-password para tu propia cuenta' });
+        }
+
+        if (!newPassword) {
+            return res.status(400).json({ error: 'Nueva contraseña es requerida' });
+        }
+
+        const cleanNewPassword = parsePassword(newPassword);
+        if (cleanNewPassword === null) {
+            return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+        }
+
+        // Verificar que el usuario objetivo existe y es empleado
+        const userCheck = await db.query('SELECT id, nombre, rol, activo FROM usuarios WHERE id = ?', [id]);
+        if (userCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const objetivo = userCheck.rows[0];
+        if (objetivo.rol !== 'empleado') {
+            return res.status(403).json({ error: 'Solo se puede cambiar la contraseña de empleados' });
+        }
+
+        if (Number(objetivo.activo) === 0) {
+            return res.status(400).json({ error: 'El usuario está desactivado' });
+        }
+
+        // Hashear nueva contraseña
+        const salt = bcrypt.genSaltSync(10);
+        const password_hash = bcrypt.hashSync(cleanNewPassword, salt);
+
+        // Actualizar
+        await db.query('UPDATE usuarios SET password_hash = ? WHERE id = ?', [password_hash, parseInt(id)]);
+
+        // Auditoría
+        logAudit(db, req.user.id, 'cambiar_contraseña', 'usuarios', parseInt(id), objetivo, { rol: objetivo.rol }, req.ip);
+
+        res.json({ message: 'Contraseña del empleado actualizada exitosamente' });
+
+    } catch (error) {
+        console.error('Error cambiando contraseña de empleado:', error);
+        res.status(500).json({ error: 'Error al cambiar la contraseña' });
+    }
+});
+
 module.exports = router;

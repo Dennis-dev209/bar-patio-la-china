@@ -207,6 +207,34 @@
         </div>
     </div>
     
+    <!-- Modal: Cambiar contraseña de empleado (admin) -->
+    <div class="modal-overlay" id="changeEmployeePasswordModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Cambiar contraseña del empleado</h3>
+                <button class="modal-close" onclick="closeChangeEmployeePasswordModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="changeEmployeePasswordForm" onsubmit="saveEmployeePassword(event)">
+                <input type="hidden" id="changeEmployeePasswordUserId" value="">
+                <div class="modal-body">
+                    <p class="text-muted" style="margin-bottom: 1rem;">Como administrador, puedes actualizar la contraseña de este empleado sin conocer la actual.</p>
+                    <div class="form-group">
+                        <label class="form-label">Nueva contraseña</label>
+                        <input type="password" id="changeEmployeePasswordInput" class="form-input" placeholder="Mínimo 8 caracteres" required minlength="8">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeChangeEmployeePasswordModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-key"></i> Actualizar contrase\u00f1a
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <!-- Toast container -->
     <div id="toastContainer" class="toast-container"></div>
     
