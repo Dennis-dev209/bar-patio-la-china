@@ -209,13 +209,8 @@
                         </div>
                         <div class="form-group">
                             <label for="depMoneda" class="form-label required">Moneda</label>
-                            <select id="depMoneda" class="form-select" required onchange="syncTasaForMoneda(this, document.getElementById('depTasa')); calculateImporteCUP();">
-                                <option value="USD">USD - Dólar Americano</option>
-                                <option value="EUR">EUR - Euro</option>
-                                <option value="MXN">MXN - Peso Mexicano</option>
-                                <option value="COP">COP - Peso Colombiano</option>
-                                <option value="ARS">ARS - Peso Argentino</option>
-                                <option value="CUP">CUP - Peso Cubano</option>
+                            <select id="depMoneda" class="form-select" required disabled onchange="syncTasaForMoneda(this, document.getElementById('depTasa')); calculateImporteCUP();">
+                                <option value="EUR" selected>EUR - Euro</option>
                             </select>
                         </div>
                     </div>
@@ -294,13 +289,8 @@
                         </div>
                         <div class="form-group">
                             <label for="addDepMoneda" class="form-label required">Moneda</label>
-                            <select id="addDepMoneda" class="form-select" required onchange="syncTasaForMoneda(this, document.getElementById('addDepTasa')); calculateAddDepCUP();">
-                                <option value="USD">USD - Dólar Americano</option>
-                                <option value="EUR">EUR - Euro</option>
-                                <option value="MXN">MXN - Peso Mexicano</option>
-                                <option value="COP">COP - Peso Colombiano</option>
-                                <option value="ARS">ARS - Peso Argentino</option>
-                                <option value="CUP">CUP - Peso Cubano</option>
+                            <select id="addDepMoneda" class="form-select" required disabled onchange="syncTasaForMoneda(this, document.getElementById('addDepTasa')); calculateAddDepCUP();">
+                                <option value="EUR" selected>EUR - Euro</option>
                             </select>
                         </div>
                     </div>

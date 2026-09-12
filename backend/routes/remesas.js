@@ -178,6 +178,11 @@ router.post('/', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'La moneda no es válida (código de 3 letras)' });
         }
 
+        // Solo se acepta EUR para nuevos depósitos
+        if (monedaCode !== 'EUR') {
+            return res.status(400).json({ error: 'Solo se acepta EUR para nuevos depósitos' });
+        }
+
         // Validar que tasa_cambio sea positiva si se proporciona (antes del default)
         let tasa = 1.0;
         if (tasa_cambio !== undefined && tasa_cambio !== null && tasa_cambio !== '') {

@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS remesas (
     ordenante_id INTEGER NOT NULL,
     remesero_id INTEGER NOT NULL,
     fecha_deposito DATE NOT NULL,
-    moneda TEXT NOT NULL DEFAULT 'USD',
+    moneda TEXT NOT NULL DEFAULT 'EUR',
     importe REAL NOT NULL,
     tasa_cambio REAL NOT NULL DEFAULT 1.0,
     importe_cup REAL NOT NULL,

@@ -298,8 +298,8 @@ const openAddDepositoModal = () => {
     // Establecer fecha actual
     document.getElementById('depositoFecha').valueAsDate = new Date();
 
-    // Moneda USD por defecto y tasa limpia (el usuario la escribe)
-    document.getElementById('depositoMoneda').value = 'USD';
+    // Moneda EUR (única) y tasa limpia (el usuario la escribe)
+    document.getElementById('depositoMoneda').value = 'EUR';
     document.getElementById('depositoTasa').value = '';
     syncTasaForMoneda(document.getElementById('depositoMoneda'), document.getElementById('depositoTasa'));
 

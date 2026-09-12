@@ -182,13 +182,8 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="depositoMoneda" class="form-label required">Moneda</label>
-                            <select id="depositoMoneda" class="form-select" required onchange="syncTasaForMoneda(this, document.getElementById('depositoTasa')); calculateImporteCUP();">
-                                <option value="USD">USD - Dólar Americano</option>
-                                <option value="EUR">EUR - Euro</option>
-                                <option value="MXN">MXN - Peso Mexicano</option>
-                                <option value="COP">COP - Peso Colombiano</option>
-                                <option value="ARS">ARS - Peso Argentino</option>
-                                <option value="CUP">CUP - Peso Cubano</option>
+                            <select id="depositoMoneda" class="form-select" required disabled onchange="syncTasaForMoneda(this, document.getElementById('depositoTasa')); calculateImporteCUP();">
+                                <option value="EUR" selected>EUR - Euro</option>
                             </select>
                         </div>
                         

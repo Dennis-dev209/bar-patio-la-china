@@ -304,7 +304,7 @@ function openAddOrdenanteModal() {
     document.getElementById('ordenanteId').value = '';
     document.getElementById('ordenanteNombre').value = '';
     document.getElementById('depFecha').value = new Date().toISOString().split('T')[0];
-    document.getElementById('depMoneda').value = 'USD';
+    document.getElementById('depMoneda').value = 'EUR';
     document.getElementById('depImporte').value = '';
     document.getElementById('depTasa').value = '';
     document.getElementById('depReferencia').value = '';
@@ -465,7 +465,8 @@ function openAddDepositoModal(ordenanteId) {
     document.getElementById('addDepOrdenanteId').value = ordenanteId;
     document.getElementById('addDepRemeseroId').value = currentRemeseroId;
     document.getElementById('addDepFecha').value = new Date().toISOString().split('T')[0];
-    document.getElementById('addDepMoneda').value = 'USD';
+    document.getElementById('addDepMoneda').innerHTML = '<option value="EUR">EUR - Euro</option>';
+    document.getElementById('addDepMoneda').value = 'EUR';
     document.getElementById('addDepImporte').value = '';
     document.getElementById('addDepTasa').value = '';
     document.getElementById('addDepReferencia').value = '';
@@ -487,7 +488,15 @@ function openEditDepositoModal(depositoId) {
     document.getElementById('addDepOrdenanteId').value = d.ordenante_id;
     document.getElementById('addDepRemeseroId').value = d.remesero_id;
     document.getElementById('addDepFecha').value = (d.fecha_deposito || '').slice(0, 10);
-    document.getElementById('addDepMoneda').value = d.moneda;
+    const monSel = document.getElementById('addDepMoneda');
+    // Solo EUR para lo nuevo; si el depósito es de otra moneda (histórico),
+    // se agrega su opción y se bloquea para no cambiarla por error.
+    monSel.innerHTML = '<option value="EUR">EUR - Euro</option>';
+    if (d.moneda && d.moneda !== 'EUR') {
+        monSel.add(new Option(d.moneda, d.moneda));
+    }
+    monSel.value = d.moneda;
+    monSel.disabled = true;
     document.getElementById('addDepImporte').value = d.importe;
     document.getElementById('addDepTasa').value = d.tasa_cambio;
     document.getElementById('addDepReferencia').value = d.referencia || '';
