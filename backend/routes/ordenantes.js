@@ -64,8 +64,9 @@ router.get('/buscar', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Escribe al menos 2 letras para buscar' });
         }
 
-        // Escapar comodines del LIKE para que se busquen literales
-        const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+        // Escapar comodines del LIKE para que se busquen literales.
+        // Se busca por inicial (prefijo): "an" trae Ana, no Alejandro.
+        const like = `${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
         const ordResult = await db.query(`
             SELECT o.id, o.nombre, o.remesero_id, r.nombre as remesero_nombre
