@@ -9,6 +9,7 @@
 
 let allClientes = [];
 let currentClienteId = null;
+let currentDetallesCliente = null;
 
 // ============================================
 // VERIFICAR AUTENTICACIÓN
@@ -212,10 +213,47 @@ const viewClienteDetails = async (id) => {
         const data = await clientesService.getById(id);
         const cliente = data.cliente;
         const stats = data.estadisticas;
-        const ordenantes = data.ordenantes;
-        
+        const ordenantes = [...(data.ordenantes || [])].sort((a, b) => (Number(b.monto_total) || 0) - (Number(a.monto_total) || 0));
+        currentDetallesCliente = { cliente, ordenantes, estadisticas: stats };
+
         document.getElementById('detailsModalTitle').textContent = cliente.nombre;
         document.getElementById('detailsEditBtn').onclick = () => editCliente(id);
+
+        const totalDepositos = ordenantes.reduce((s, o) => s + (Number(o.total_remesas) || 0), 0);
+        const totalCUP = ordenantes.reduce((s, o) => s + (Number(o.monto_total) || 0), 0);
+        const totalPendCUP = ordenantes.reduce((s, o) => s + (Number(o.monto_pendiente) || 0), 0);
+        const totalConfCUP = ordenantes.reduce((s, o) => s + (Number(o.monto_confirmado) || 0), 0);
+
+        const rowsHtml = ordenantes.length > 0 ? ordenantes.map((o, idx) => {
+            const mon = o.ultima_moneda || 'CUP';
+            const tienePendiente = (Number(o.monto_pendiente) || 0) > 0;
+            return `
+                <tr onclick="viewOrdenanteDetails(${o.id})" style="cursor:pointer">
+                    <td class="text-muted">${idx + 1}</td>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="cliente-avatar" style="width:28px;height:28px;font-size:0.7rem;flex-shrink:0;">${escapeHtml(getInitials(o.nombre))}</span>
+                            <strong>${escapeHtml(o.nombre)}</strong>
+                        </div>
+                    </td>
+                    <td><span class="badge badge-info">${escapeHtml(mon)}</span></td>
+                    <td>${o.total_remesas || 0}</td>
+                    <td><strong>${formatCurrency(o.monto_total_moneda ?? o.monto_total, mon)}</strong></td>
+                    <td class="text-warning">${formatCurrency(o.monto_pendiente_moneda ?? o.monto_pendiente, mon)}</td>
+                    <td class="text-success">${formatCurrency(o.monto_confirmado_moneda ?? o.monto_confirmado, mon)}</td>
+                    <td>${o.ultimo_deposito ? formatDate(o.ultimo_deposito) : '—'}</td>
+                    <td>${tienePendiente ? '<span class="badge badge-warning">Pendiente</span>' : '<span class="badge badge-success">Al día</span>'}</td>
+                </tr>`;
+        }).join('') + `
+                <tr style="font-weight:700;">
+                    <td colspan="3">Total</td>
+                    <td>${totalDepositos}</td>
+                    <td>${formatCurrency(totalCUP, 'CUP')}</td>
+                    <td>${formatCurrency(totalPendCUP, 'CUP')}</td>
+                    <td>${formatCurrency(totalConfCUP, 'CUP')}</td>
+                    <td colspan="2"></td>
+                </tr>` : `
+                <tr><td colspan="9" class="text-center text-muted">No hay ordenantes registrados</td></tr>`;
         
         const body = document.getElementById('detailsModalBody');
         body.innerHTML = `
@@ -261,22 +299,20 @@ const viewClienteDetails = async (id) => {
                     </div>
                 </div>
                 
-                <h5 class="mt-lg mb-md">Ordenantes</h5>
-                ${ordenantes.length > 0 ? `
-                    <div class="ordenantes-list">
-                        ${ordenantes.map(o => `
-                            <div class="ordenante-item" onclick="viewOrdenanteDetails(${o.id})">
-                                <div class="ordenante-info">
-                                    <strong>${escapeHtml(o.nombre)}</strong>
-                                    <span>${escapeHtml(o.pais_origen) || 'Sin país'}</span>
-                                </div>
-                                <div class="ordenante-monto">
-                                    ${o.ultima_moneda ? escapeHtml(o.ultima_moneda) + ' ' : ''}${formatCurrency(o.monto_total_moneda ?? o.monto_total, o.ultima_moneda || 'CUP')}
-                                </div>
-                            </div>
-                        `).join('')}
+                <div class="detalles-depositos">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:16px 0 12px;">
+                        <h5 style="margin:0;">Ordenantes</h5>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-sm btn-secondary" onclick="exportClienteExcel()">
+                                <i class="fas fa-file-excel"></i> Excel
+                            </button>
+                            <button class="btn btn-sm btn-secondary" onclick="exportClientePDF()">
+                                <i class="fas fa-file-pdf"></i> PDF
+                            </button>
+                        </div>
                     </div>
-                ` : '<p class="text-muted">No hay ordenantes registrados</p>'}
+                    <div class="table-container"><table class="table"><thead><tr><th>#</th><th>Ordenante</th><th>Moneda</th><th>Depósitos</th><th>Importe total</th><th>Pendiente</th><th>Confirmado</th><th>Último depósito</th><th>Estado</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
+                </div>
             </div>
         `;
         
@@ -305,6 +341,153 @@ const generateResumen = async (id) => {
         showToast('info', 'Info', 'Función de generar resumen en desarrollo');
     } catch (error) {
         showToast('error', 'Error', 'No se pudo generar el resumen');
+    }
+};
+
+// ============================================
+// EXPORTAR RESUMEN DEL CLIENTE A EXCEL / PDF
+// ============================================
+
+const getClienteSafeFilename = (nombre) => {
+    const base = String(nombre || 'Cliente').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_').substring(0, 50) || 'Cliente';
+    return base;
+};
+
+const exportClienteExcel = () => {
+    try {
+        if (typeof XLSX === 'undefined') {
+            showToast('error', 'Error', 'No se pudo cargar la librería de Excel. Revisa tu conexión.');
+            return;
+        }
+        if (!currentDetallesCliente || !currentDetallesCliente.cliente) {
+            showToast('warning', 'Sin datos', 'Abre primero los detalles del cliente.');
+            return;
+        }
+        const { cliente, ordenantes, estadisticas: stats } = currentDetallesCliente;
+        const sorted = [...(ordenantes || [])].sort((a, b) => (Number(b.monto_total) || 0) - (Number(a.monto_total) || 0));
+        const totalDepositos = sorted.reduce((s, o) => s + (Number(o.total_remesas) || 0), 0);
+        const totalCUP = sorted.reduce((s, o) => s + (Number(o.monto_total) || 0), 0);
+        const totalPendCUP = sorted.reduce((s, o) => s + (Number(o.monto_pendiente) || 0), 0);
+        const totalConfCUP = sorted.reduce((s, o) => s + (Number(o.monto_confirmado) || 0), 0);
+
+        const wb = XLSX.utils.book_new();
+        const resumenData = [
+            ['RESUMEN DE CLIENTE'],
+            ['Bar Patio La China'],
+            [`Cliente: ${cliente.nombre || ''}`],
+            [`Teléfono: ${cliente.telefono || 'Sin teléfono'}`],
+            [`Fecha: ${new Date().toLocaleDateString('es-ES')}`],
+            [''],
+            ['Concepto', 'Valor'],
+            ['Ordenantes', stats.total_ordenantes || 0],
+            [`Pendiente (${stats.ultima_moneda || 'CUP'})`, stats.monto_pendiente_moneda ?? stats.monto_pendiente],
+            [`Confirmado (${stats.ultima_moneda || 'CUP'})`, stats.monto_confirmado_moneda ?? stats.monto_confirmado],
+            [''],
+            ['#', 'Ordenante', 'Moneda', 'Depósitos', 'Importe total', 'Pendiente', 'Confirmado', 'Último depósito', 'Estado'],
+            ...sorted.map((o, idx) => {
+                const mon = o.ultima_moneda || 'CUP';
+                return [
+                    idx + 1,
+                    o.nombre || '',
+                    mon,
+                    o.total_remesas || 0,
+                    o.monto_total_moneda ?? o.monto_total,
+                    o.monto_pendiente_moneda ?? o.monto_pendiente,
+                    o.monto_confirmado_moneda ?? o.monto_confirmado,
+                    o.ultimo_deposito ? formatDate(o.ultimo_deposito) : '—',
+                    (Number(o.monto_pendiente) || 0) > 0 ? 'Pendiente' : 'Al día'
+                ];
+            }),
+            ['Total', '', '', totalDepositos, totalCUP, totalPendCUP, totalConfCUP, '', '']
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(resumenData);
+        XLSX.utils.book_append_sheet(wb, ws, 'Resumen');
+
+        const fecha = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, `Resumen_${getClienteSafeFilename(cliente.nombre)}_${fecha}.xlsx`);
+
+        showToast('success', 'Éxito', 'Resumen exportado a Excel');
+    } catch (error) {
+        console.error('Error al exportar:', error);
+        showToast('error', 'Error', 'No se pudo exportar el resumen');
+    }
+};
+
+const exportClientePDF = () => {
+    try {
+        if (typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF) {
+            showToast('error', 'Error', 'No se pudo cargar la librería de PDF. Revisa tu conexión.');
+            return;
+        }
+        if (!currentDetallesCliente || !currentDetallesCliente.cliente) {
+            showToast('warning', 'Sin datos', 'Abre primero los detalles del cliente.');
+            return;
+        }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const { cliente, ordenantes, estadisticas: stats } = currentDetallesCliente;
+        const sorted = [...(ordenantes || [])].sort((a, b) => (Number(b.monto_total) || 0) - (Number(a.monto_total) || 0));
+
+        doc.setFontSize(20);
+        doc.text('Resumen de Cliente', 105, 20, { align: 'center' });
+
+        doc.setFontSize(12);
+        doc.text('Bar Patio La China', 105, 28, { align: 'center' });
+
+        doc.setFontSize(10);
+        doc.text(`Cliente: ${cliente.nombre || ''}`, 20, 38);
+        doc.text(`Telefono: ${cliente.telefono || 'Sin telefono'}`, 20, 44);
+        doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 20, 50);
+
+        let y = 60;
+        doc.setFontSize(14);
+        doc.text('Estadisticas', 20, y);
+        y += 10;
+
+        doc.setFontSize(10);
+        doc.text(`Ordenantes: ${stats.total_ordenantes || 0}`, 20, y);
+        y += 7;
+        doc.text(`Pendiente (${stats.ultima_moneda || 'CUP'}): ${formatCurrency(stats.monto_pendiente_moneda ?? stats.monto_pendiente, stats.ultima_moneda || 'CUP')}`, 20, y);
+        y += 7;
+        doc.text(`Confirmado (${stats.ultima_moneda || 'CUP'}): ${formatCurrency(stats.monto_confirmado_moneda ?? stats.monto_confirmado, stats.ultima_moneda || 'CUP')}`, 20, y);
+        y += 15;
+
+        doc.setFontSize(14);
+        doc.text('Ordenantes', 20, y);
+        y += 10;
+
+        doc.setFontSize(9);
+        sorted.forEach((o, idx) => {
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
+            const mon = o.ultima_moneda || 'CUP';
+            const estado = (Number(o.monto_pendiente) || 0) > 0 ? 'Pendiente' : 'Al dia';
+            const fechaDep = o.ultimo_deposito ? formatDate(o.ultimo_deposito) : '—';
+            doc.text(`${idx + 1}. ${o.nombre || ''} | ${mon} | Dep: ${o.total_remesas || 0} | Total: ${formatCurrency(o.monto_total_moneda ?? o.monto_total, mon)} | ${estado} | ${fechaDep}`, 20, y);
+            y += 7;
+        });
+
+        if (y > 270) {
+            doc.addPage();
+            y = 20;
+        }
+        const totalDepositos = sorted.reduce((s, o) => s + (Number(o.total_remesas) || 0), 0);
+        const totalCUP = sorted.reduce((s, o) => s + (Number(o.monto_total) || 0), 0);
+        y += 3;
+        doc.text(`Total depositos: ${totalDepositos} | Total CUP: ${formatCurrency(totalCUP, 'CUP')}`, 20, y);
+
+        doc.setFontSize(8);
+        doc.text('Generado por Sistema de Conciliación - Bar Patio La China', 105, 290, { align: 'center' });
+
+        const fecha = new Date().toISOString().split('T')[0];
+        doc.save(`Resumen_${getClienteSafeFilename(cliente.nombre)}_${fecha}.pdf`);
+
+        showToast('success', 'Éxito', 'Resumen exportado a PDF');
+    } catch (error) {
+        console.error('Error al exportar PDF:', error);
+        showToast('error', 'Error', 'No se pudo exportar el resumen');
     }
 };
 
@@ -431,8 +614,11 @@ window.openAddClienteModal = openAddClienteModal;
 window.editCliente = editCliente;
 window.saveCliente = saveCliente;
 window.viewClienteDetails = viewClienteDetails;
+window.viewOrdenanteDetails = viewOrdenanteDetails;
 window.viewOrdenantes = viewOrdenantes;
 window.generateResumen = generateResumen;
+window.exportClienteExcel = exportClienteExcel;
+window.exportClientePDF = exportClientePDF;
 window.deleteCliente = deleteCliente;
 window.closeClienteModal = closeClienteModal;
 window.closeDetailsModal = closeDetailsModal;

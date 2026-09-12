@@ -78,19 +78,23 @@ router.get('/:id', authenticateToken, async (req, res) => {
             WHERE r.id = ?
         `, [id]);
 
-        // Obtener ordenantes recientes (monto en moneda extranjera)
+        // Obtener ordenantes del cliente con desglose pendiente/confirmado y último depósito
         const ordenantesResult = await db.query(`
             SELECT o.id, o.nombre, o.telefono, o.pais_origen,
                    COUNT(rem.id) as total_remesas,
                    COALESCE(SUM(rem.importe_cup), 0) as monto_total,
                    COALESCE(SUM(rem.importe), 0) as monto_total_moneda,
+                   COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe_cup ELSE 0 END), 0) as monto_pendiente,
+                   COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe_cup ELSE 0 END), 0) as monto_confirmado,
+                   COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe ELSE 0 END), 0) as monto_pendiente_moneda,
+                   COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe ELSE 0 END), 0) as monto_confirmado_moneda,
+                   MAX(rem.fecha_deposito) as ultimo_deposito,
                    (SELECT rem2.moneda FROM remesas rem2 WHERE rem2.ordenante_id = o.id ORDER BY rem2.created_at DESC LIMIT 1) as ultima_moneda
             FROM ordenantes o
             LEFT JOIN remesas rem ON o.id = rem.ordenante_id
             WHERE o.remesero_id = ? AND o.activo = 1
             GROUP BY o.id, o.nombre, o.telefono, o.pais_origen
-            ORDER BY o.nombre ASC
-            LIMIT 10
+            ORDER BY monto_total DESC
         `, [id]);
 
         res.json({
