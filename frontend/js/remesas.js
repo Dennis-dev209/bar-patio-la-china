@@ -14,6 +14,8 @@ let currentRemeseroId = null;
 let currentOrdenanteId = null;
 let currentVista = 'clientes';
 let currentFilters = {};
+let currentBusqueda = '';
+let searchDepositos = [];
 
 // ============================================
 // VERIFICAR AUTENTICACIÓN
@@ -234,8 +236,11 @@ const renderDepositosList = (remesas) => {
 // ============================================
 
 const toggleConfirmacion = async (id) => {
-    // El estado se resuelve desde el caché (nunca desde strings interpolados en onclick)
-    const deposito = currentDepositos.find(d => d.id === id);
+    // El estado se resuelve desde el caché (nunca desde strings interpolados en onclick).
+    // Busca primero en la vista actual (depósitos o resultados de búsqueda).
+    const deposito = (currentVista === 'busqueda' ? searchDepositos : currentDepositos).find(d => d.id === id)
+        || currentDepositos.find(d => d.id === id)
+        || searchDepositos.find(d => d.id === id);
     const estadoActual = deposito ? deposito.estado : 'pendiente';
     const accion = estadoActual === 'pendiente' ? 'confirmar' : 'desconfirmar';
     const mensaje = estadoActual === 'pendiente' ? 
@@ -254,8 +259,12 @@ const toggleConfirmacion = async (id) => {
             showToast('success', 'Éxito', 'Pago marcado como pendiente');
         }
         
-        // Recargar depósitos
-        selectOrdenante(currentOrdenanteId, currentRemeseroId, document.getElementById('depositosTitle').textContent.replace('Depósitos de ', ''));
+        // Recargar la vista actual (depósitos o resultados de búsqueda)
+        if (currentVista === 'busqueda') {
+            searchOrdenantes(true);
+        } else {
+            selectOrdenante(currentOrdenanteId, currentRemeseroId, document.getElementById('depositosTitle').textContent.replace('Depósitos de ', ''));
+        }
     } catch (error) {
         showToast('error', 'Error', 'No se pudo actualizar el estado');
     }
@@ -392,9 +401,11 @@ const applyFilters = () => {
         fecha_fin: document.getElementById('filterFechaFin').value
     };
     
-    // Si estamos en la vista de depósitos, recargar
+    // Si estamos en la vista de depósitos o búsqueda, recargar
     if (currentVista === 'depositos' && currentOrdenanteId) {
         selectOrdenante(currentOrdenanteId, currentRemeseroId, document.getElementById('depositosTitle').textContent.replace('Depósitos de ', ''));
+    } else if (currentVista === 'busqueda' && currentBusqueda) {
+        searchOrdenantes(true);
     }
 };
 
@@ -406,7 +417,128 @@ const clearFilters = () => {
     
     if (currentVista === 'depositos' && currentOrdenanteId) {
         selectOrdenante(currentOrdenanteId, currentRemeseroId, document.getElementById('depositosTitle').textContent.replace('Depósitos de ', ''));
+    } else if (currentVista === 'busqueda' && currentBusqueda) {
+        searchOrdenantes(true);
     }
+};
+
+// ============================================
+// BUSCAR ORDENANTE POR NOMBRE (todas las clientes)
+// ============================================
+
+const searchOrdenantes = async (mantenerTexto = false) => {
+    if (!mantenerTexto) {
+        currentBusqueda = document.getElementById('searchOrdenante').value.trim();
+    }
+    
+    if (!currentBusqueda || currentBusqueda.length < 2) {
+        showToast('warning', 'Atención', 'Escribe al menos 2 letras para buscar');
+        return;
+    }
+    
+    document.getElementById('searchOrdenante').value = currentBusqueda;
+    document.getElementById('busquedaTitle').textContent = `Resultados para "${currentBusqueda}"`;
+    document.getElementById('busquedaList').innerHTML = `
+        <div class="text-center text-muted p-xl">
+            <i class="fas fa-spinner fa-spin"></i> Buscando...
+        </div>
+    `;
+    showVista('busqueda');
+    
+    try {
+        const params = {};
+        if (currentFilters.estado) params.estado = currentFilters.estado;
+        const data = await ordenantesService.buscar(currentBusqueda, params);
+        renderBusqueda(data.resultados || []);
+    } catch (error) {
+        console.error('Error al buscar ordenantes:', error);
+        showToast('error', 'Error', error.message || 'No se pudo buscar');
+        document.getElementById('busquedaList').innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">⚠️</div>
+                <h3 class="empty-state-title">No se pudo buscar</h3>
+                <p class="empty-state-text">Inténtalo de nuevo</p>
+            </div>
+        `;
+    }
+};
+
+const renderBusqueda = (resultados) => {
+    const container = document.getElementById('busquedaList');
+    searchDepositos = [];
+    
+    if (!resultados || resultados.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🔍</div>
+                <h3 class="empty-state-title">Sin resultados</h3>
+                <p class="empty-state-text">Ningún ordenante coincide con "${escapeHtml(currentBusqueda)}"</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = resultados.map(grupo => {
+        const depositos = grupo.depositos || [];
+        searchDepositos = searchDepositos.concat(depositos);
+        const pendientes = depositos.filter(d => d.estado === 'pendiente').length;
+        
+        const depositosHTML = depositos.length === 0
+            ? '<div class="text-center text-muted p-md">Este ordenante no tiene depósitos con el filtro actual</div>'
+            : depositos.map(remesa => `
+                <div class="deposito-card ${remesa.estado}">
+                    <div class="deposito-header">
+                        <div class="deposito-fecha">
+                            <i class="fas fa-calendar"></i> ${formatDate(remesa.fecha_deposito)}
+                        </div>
+                        <span class="status-indicator ${remesa.estado}">
+                            <span class="status-dot"></span>
+                            ${remesa.estado === 'confirmado' ? 'Confirmado' : 'Pendiente'}
+                        </span>
+                    </div>
+                    <div class="deposito-body">
+                        <div class="deposito-monto">
+                            <span class="monto-moneda">${escapeHtml(remesa.moneda)}</span>
+                            <span class="monto-valor">${formatCurrency(remesa.importe, remesa.moneda)}</span>
+                            <i class="fas fa-arrow-right"></i>
+                            <span class="monto-cup">${formatCurrency(remesa.importe_cup)}</span>
+                        </div>
+                        ${remesa.referencia ? `
+                            <div class="deposito-referencia">
+                                <i class="fas fa-hashtag"></i> ${escapeHtml(remesa.referencia)}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="deposito-footer">
+                        <button class="confirm-btn ${remesa.estado}" onclick="toggleConfirmacion(${remesa.id})">
+                            ${remesa.estado === 'pendiente' ? 
+                                '<i class="fas fa-check"></i> Confirmar' : 
+                                '<i class="fas fa-undo"></i> Desconfirmar'}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        
+        return `
+            <div class="busqueda-grupo">
+                <div class="busqueda-grupo-header">
+                    <div class="busqueda-ordenante">
+                        <i class="fas fa-user"></i> ${escapeHtml(grupo.nombre)}
+                    </div>
+                    <div class="busqueda-cliente">
+                        <i class="fas fa-users"></i> Cliente: ${escapeHtml(grupo.remesero_nombre)}
+                    </div>
+                    <span class="status-indicator ${pendientes > 0 ? 'pendiente' : 'confirmado'}">
+                        <span class="status-dot"></span>
+                        ${pendientes > 0 ? `${pendientes} pendiente${pendientes !== 1 ? 's' : ''}` : 'Al día'}
+                    </span>
+                </div>
+                <div class="depositos-list">
+                    ${depositosHTML}
+                </div>
+            </div>
+        `;
+    }).join('');
 };
 
 // ============================================
@@ -503,6 +635,7 @@ window.openAddDepositoModal = openAddDepositoModal;
 window.saveDeposito = saveDeposito;
 window.closeDepositoModal = closeDepositoModal;
 window.showVista = showVista;
+window.searchOrdenantes = searchOrdenantes;
 window.applyFilters = applyFilters;
 window.clearFilters = clearFilters;
 window.logout = logout;

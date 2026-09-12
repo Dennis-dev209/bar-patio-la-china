@@ -51,6 +51,64 @@ router.get('/remesero/:remeseroId', authenticateToken, async (req, res) => {
 });
 
 // ============================================
+// GET /api/ordenantes/buscar?q=nombre
+// Buscar ordenantes por nombre en todos los clientes
+// (OJO: va antes de /:id para que Express no lo confunda con un id)
+// ============================================
+router.get('/buscar', authenticateToken, async (req, res) => {
+    try {
+        const q = (req.query.q || '').trim();
+        const { estado } = req.query;
+
+        if (q.length < 2) {
+            return res.status(400).json({ error: 'Escribe al menos 2 letras para buscar' });
+        }
+
+        // Escapar comodines del LIKE para que se busquen literales
+        const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
+        const ordResult = await db.query(`
+            SELECT o.id, o.nombre, o.remesero_id, r.nombre as remesero_nombre
+            FROM ordenantes o
+            JOIN remeseros r ON o.remesero_id = r.id
+            WHERE o.activo = 1 AND r.activo = 1 AND o.nombre LIKE ? ESCAPE '\\'
+            ORDER BY o.nombre ASC
+            LIMIT 20
+        `, [like]);
+
+        const resultados = [];
+        for (const o of ordResult.rows) {
+            let depQuery = `
+                SELECT id, ordenante_id, remesero_id, fecha_deposito, moneda,
+                       importe, tasa_cambio, importe_cup, referencia, estado
+                FROM remesas
+                WHERE ordenante_id = ?
+            `;
+            const params = [o.id];
+            if (estado === 'pendiente' || estado === 'confirmado') {
+                depQuery += ` AND estado = ?`;
+                params.push(estado);
+            }
+            depQuery += ` ORDER BY fecha_deposito DESC`;
+            const depResult = await db.query(depQuery, params);
+            resultados.push({
+                id: o.id,
+                nombre: o.nombre,
+                remesero_id: o.remesero_id,
+                remesero_nombre: o.remesero_nombre,
+                depositos: depResult.rows
+            });
+        }
+
+        res.json({ resultados });
+
+    } catch (error) {
+        console.error('Error al buscar ordenantes:', error);
+        res.status(500).json({ error: 'Error al buscar ordenantes' });
+    }
+});
+
+// ============================================
 // GET /api/ordenantes/:id/detalles
 // Obtener ordenante con todos sus depósitos
 // ============================================

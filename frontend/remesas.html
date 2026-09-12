@@ -115,6 +115,13 @@
                         <label class="filter-label">Hasta:</label>
                         <input type="date" class="filter-input" id="filterFechaFin" onchange="applyFilters()">
                     </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Buscar ordenante:</label>
+                        <input type="text" class="filter-input" id="searchOrdenante" placeholder="Nombre..." onkeydown="if(event.key==='Enter')searchOrdenantes()">
+                    </div>
+                    <button class="btn btn-sm btn-primary" onclick="searchOrdenantes()">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
                     <button class="btn btn-sm btn-secondary" onclick="clearFilters()">
                         <i class="fas fa-times"></i> Limpiar
                     </button>
@@ -152,6 +159,19 @@
                         <h3 class="section-title" id="depositosTitle">Depósitos</h3>
                     </div>
                     <div class="depositos-list" id="depositosList">
+                        <!-- Contenido dinámico -->
+                    </div>
+                </div>
+                
+                <!-- Vista de búsqueda de ordenantes -->
+                <div id="vistaBusqueda" class="vista-actual hidden">
+                    <div class="vista-header">
+                        <button class="btn btn-ghost" onclick="showVista('clientes')">
+                            <i class="fas fa-arrow-left"></i> Volver a Clientes
+                        </button>
+                        <h3 class="section-title" id="busquedaTitle">Resultados</h3>
+                    </div>
+                    <div class="busqueda-list" id="busquedaList">
                         <!-- Contenido dinámico -->
                     </div>
                 </div>

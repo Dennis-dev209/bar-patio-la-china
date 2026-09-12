@@ -148,7 +148,11 @@ const ordenantesService = {
     getDetalles: (id) => api.get(`/ordenantes/${id}/detalles`),
     create: (data) => api.post('/ordenantes', data),
     update: (id, data) => api.put(`/ordenantes/${id}`, data),
-    delete: (id) => api.delete(`/ordenantes/${id}`)
+    delete: (id) => api.delete(`/ordenantes/${id}`),
+    buscar: (q, params = {}) => {
+        const queryString = new URLSearchParams({ q, ...params }).toString();
+        return api.get(`/ordenantes/buscar?${queryString}`);
+    }
 };
 
 // Remesas
