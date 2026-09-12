@@ -31,6 +31,12 @@ tmp/
 
 # Base de datos local (se usa Turso en producción)
 data/database.sqlite
+data/database.sqlite-shm
+data/database.sqlite-wal
+data/database.sqlite-journal
+
+# Cookies temporales de pruebas con curl
+cookies.txt
 
 # Logs del servidor
 server_output.log
