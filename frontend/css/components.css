@@ -630,7 +630,7 @@
    TOOLTIP
    ============================================ */
 
-[data-tooltip] {
+[data-tooltip]:not(.btn-fab) {
     position: relative;
 }
 
