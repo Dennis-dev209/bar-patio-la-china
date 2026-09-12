@@ -117,7 +117,7 @@
                     </div>
                     <div class="filter-group">
                         <label class="filter-label">Buscar ordenante:</label>
-                        <input type="text" class="filter-input" id="searchOrdenante" placeholder="Nombre..." onkeydown="if(event.key==='Enter')searchOrdenantes()">
+                        <input type="text" class="filter-input" id="searchOrdenante" placeholder="Nombre..." oninput="onSearchInput()" onkeydown="if(event.key==='Enter')searchOrdenantes()">
                     </div>
                     <button class="btn btn-sm btn-primary" onclick="searchOrdenantes()">
                         <i class="fas fa-search"></i> Buscar

@@ -16,6 +16,8 @@ let currentVista = 'clientes';
 let currentFilters = {};
 let currentBusqueda = '';
 let searchDepositos = [];
+let searchDebounce = null;
+let searchSeq = 0;
 
 // ============================================
 // VERIFICAR AUTENTICACIÓN
@@ -436,6 +438,44 @@ const searchOrdenantes = async (mantenerTexto = false) => {
         return;
     }
     
+    clearTimeout(searchDebounce);
+    runBusqueda();
+};
+
+// Búsqueda en vivo: filtra mientras escribes (con pausa de 400ms).
+// El botón Buscar y Enter siguen funcionando igual.
+const onSearchInput = () => {
+    clearTimeout(searchDebounce);
+    const texto = document.getElementById('searchOrdenante').value.trim();
+    
+    if (texto.length < 2) {
+        // Sin suficientes letras no se llama a la API; si ya estaba
+        // viendo resultados, se muestra el aviso en esa vista.
+        if (currentVista === 'busqueda') {
+            currentBusqueda = texto;
+            document.getElementById('busquedaTitle').textContent = 'Buscar ordenante';
+            document.getElementById('busquedaList').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">🔍</div>
+                    <h3 class="empty-state-title">Sigue escribiendo</h3>
+                    <p class="empty-state-text">Escribe al menos 2 letras para buscar</p>
+                </div>
+            `;
+        }
+        return;
+    }
+    
+    searchDebounce = setTimeout(() => {
+        // Si el texto cambió mientras esperaba, esta búsqueda ya no vale
+        if (document.getElementById('searchOrdenante').value.trim() !== texto) return;
+        currentBusqueda = texto;
+        runBusqueda();
+    }, 400);
+};
+
+const runBusqueda = async () => {
+    const seq = ++searchSeq;
+    
     document.getElementById('searchOrdenante').value = currentBusqueda;
     document.getElementById('busquedaTitle').textContent = `Resultados para "${currentBusqueda}"`;
     document.getElementById('busquedaList').innerHTML = `
@@ -449,8 +489,11 @@ const searchOrdenantes = async (mantenerTexto = false) => {
         const params = {};
         if (currentFilters.estado) params.estado = currentFilters.estado;
         const data = await ordenantesService.buscar(currentBusqueda, params);
+        // Si el usuario ya escribió más, esta respuesta es vieja: se descarta
+        if (seq !== searchSeq) return;
         renderBusqueda(data.resultados || []);
     } catch (error) {
+        if (seq !== searchSeq) return;
         console.error('Error al buscar ordenantes:', error);
         showToast('error', 'Error', error.message || 'No se pudo buscar');
         document.getElementById('busquedaList').innerHTML = `
@@ -636,6 +679,7 @@ window.saveDeposito = saveDeposito;
 window.closeDepositoModal = closeDepositoModal;
 window.showVista = showVista;
 window.searchOrdenantes = searchOrdenantes;
+window.onSearchInput = onSearchInput;
 window.applyFilters = applyFilters;
 window.clearFilters = clearFilters;
 window.logout = logout;
