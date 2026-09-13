@@ -118,6 +118,30 @@
 .sidebar-footer {
     padding: var(--spacing-md);
     border-top: var(--border-width) solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+#dbBadge {
+    font-size: var(--text-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+}
+
+#dbBadge.db-cloud {
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border: 1px solid var(--accent);
+}
+
+#dbBadge.db-local {
+    background: var(--success-light);
+    color: var(--success-dark);
+    border: 1px solid var(--success);
 }
 
 /* ============================================

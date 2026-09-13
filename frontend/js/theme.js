@@ -61,7 +61,12 @@ const renderDbBadge = async () => {
         const dot = health.db.mode === 'turso' ? '●' : '○';
         badge.textContent = `${dot} ${health.db.label} · ${health.counts.remeseros} clientes · ${health.counts.remesas} remesas`;
         badge.title = `Conectado a: ${health.db.detail}`;
-        document.body.appendChild(badge);
+        const sidebarFooter = document.querySelector('.sidebar-footer');
+        if (sidebarFooter) {
+            sidebarFooter.insertBefore(badge, sidebarFooter.firstChild);
+        } else {
+            document.body.appendChild(badge);
+        }
     } catch (e) {
         // Sin conexión al health: no bloquear la página
     }
