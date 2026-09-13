@@ -248,3 +248,63 @@
         align-items: flex-start;
     }
 }
+
+/* ============================================
+   REGISTRO DE ACTIVIDAD
+   ============================================ */
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+}
+
+.detalle-row {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.detalle-label {
+    color: var(--text-muted);
+    min-width: 90px;
+}
+
+.detalle-value {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.json-block {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    font-size: var(--text-sm);
+    max-height: 220px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.busqueda-grupo {
+    margin-bottom: var(--spacing-lg);
+}
+
+.busqueda-grupo-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    margin-bottom: var(--spacing-md);
+}
+
+.busqueda-ordenante {
+    font-weight: var(--font-bold);
+    font-size: var(--text-lg);
+}
+
+.busqueda-cliente {
+    color: var(--text-secondary);
+}

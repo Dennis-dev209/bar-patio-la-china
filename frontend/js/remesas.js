@@ -96,6 +96,7 @@ const selectCliente = async (remeseroId) => {
     currentRemeseroId = remeseroId;
     const cliente = clientes.find(c => c.id === remeseroId);
     const nombre = cliente ? cliente.nombre : '';
+    pushReciente('cliente', { id: remeseroId, nombre });
     document.getElementById('ordenantesTitle').textContent = `Ordenantes de ${nombre}`;
     
     try {
@@ -157,6 +158,7 @@ const selectOrdenante = async (ordenanteId, remeseroId) => {
     currentOrdenanteId = ordenanteId;
     const ordenante = currentOrdenantes.find(o => o.id === ordenanteId);
     const nombre = ordenante ? ordenante.nombre : '';
+    pushReciente('ordenante', { id: ordenanteId, remeseroId, nombre });
     document.getElementById('depositosTitle').textContent = `Depósitos de ${nombre}`;
     
     // Guardar remeseroId para nuevos depósitos
@@ -639,7 +641,143 @@ const loadUser = () => {
     const user = JSON.parse(localStorage.getItem('user'));
     if (user) {
         document.getElementById('userName').querySelector('span').textContent = user.nombre;
+        // Registro de Actividad: solo visible para admin
+        if (user.rol === 'admin') {
+            const navAct = document.getElementById('navActividad');
+            if (navAct) navAct.style.display = '';
+        }
     }
+};
+
+// ============================================
+// REGISTRO DE ACTIVIDAD (solo admin, últimos 15 días)
+// ============================================
+
+let actPagina = 1;
+let actTotalPaginas = 1;
+let actFiltros = {};
+
+const openActividad = () => {
+    showVista('actividad');
+    loadActividad(1);
+};
+
+const loadActividad = async (pagina = 1) => {
+    actPagina = pagina;
+    document.getElementById('actividadBody').innerHTML = `
+        <tr><td colspan="7" class="text-center text-muted">
+            <i class="fas fa-spinner fa-spin"></i> Cargando actividad...
+        </td></tr>
+    `;
+    try {
+        const params = { pagina, limite: 50, ...actFiltros };
+        const data = await reportesService.getAuditoria(params);
+        actTotalPaginas = data.totalPaginas || 1;
+        renderActividad(data.items || [], data.total || 0);
+    } catch (error) {
+        console.error('Error al cargar actividad:', error);
+        showToast('error', 'Error', error.message || 'No se pudo cargar la actividad');
+        document.getElementById('actividadBody').innerHTML = `
+            <tr><td colspan="7" class="text-center text-muted">No se pudo cargar. Revisa tu conexión.</td></tr>
+        `;
+    }
+};
+
+const renderActividad = (items, total) => {
+    const body = document.getElementById('actividadBody');
+    if (!items || items.length === 0) {
+        body.innerHTML = `
+            <tr><td colspan="7" class="text-center text-muted">Sin actividad en los últimos 15 días</td></tr>
+        `;
+    } else {
+        body.innerHTML = items.map(a => `
+            <tr>
+                <td>${a.created_at ? formatDateTime(a.created_at) : '—'}</td>
+                <td>${escapeHtml(a.usuario_nombre || ('#' + a.usuario_id))}</td>
+                <td><span class="badge badge-info">${escapeHtml(a.accion)}</span></td>
+                <td>${escapeHtml(a.tabla)}</td>
+                <td>${a.registro_id ?? '—'}</td>
+                <td>${escapeHtml(a.ip_address || '—')}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="openActividadDetalle(${a.id})" title="Ver detalle">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    const pag = document.getElementById('actividadPaginacion');
+    pag.innerHTML = `
+        <button class="btn btn-sm btn-outline" onclick="loadActividad(${actPagina - 1})" ${actPagina <= 1 ? 'disabled' : ''}>
+            <i class="fas fa-chevron-left"></i> Anterior
+        </button>
+        <span class="text-muted">Página ${actPagina} de ${actTotalPaginas} (${total} registros)</span>
+        <button class="btn btn-sm btn-outline" onclick="loadActividad(${actPagina + 1})" ${actPagina >= actTotalPaginas ? 'disabled' : ''}>
+            Siguiente <i class="fas fa-chevron-right"></i>
+        </button>
+    `;
+};
+
+const aplicarFiltrosActividad = () => {
+    actFiltros = {};
+    const texto = document.getElementById('actFiltroTexto').value.trim();
+    const accion = document.getElementById('actFiltroAccion').value;
+    const tabla = document.getElementById('actFiltroTabla').value;
+    const desde = document.getElementById('actFiltroDesde').value;
+    const hasta = document.getElementById('actFiltroHasta').value;
+    // El texto filtra en cliente sobre lo cargado no es viable con paginación:
+    // se envía como búsquedas separadas por campo conocido
+    if (accion) actFiltros.accion = accion;
+    if (tabla) actFiltros.tabla = tabla;
+    if (desde) actFiltros.fecha_desde = desde;
+    if (hasta) actFiltros.fecha_hasta = hasta;
+    if (texto) actFiltros.q = texto;
+    loadActividad(1);
+};
+
+const limpiarFiltrosActividad = () => {
+    document.getElementById('actFiltroTexto').value = '';
+    document.getElementById('actFiltroAccion').value = '';
+    document.getElementById('actFiltroTabla').value = '';
+    document.getElementById('actFiltroDesde').value = '';
+    document.getElementById('actFiltroHasta').value = '';
+    actFiltros = {};
+    loadActividad(1);
+};
+
+const openActividadDetalle = async (id) => {
+    try {
+        const data = await reportesService.getAuditoriaDetalle(id);
+        const a = data.auditoria;
+        const pretty = (v) => {
+            if (v === null || v === undefined || v === '') return '—';
+            try {
+                return JSON.stringify(JSON.parse(v), null, 2);
+            } catch (e) {
+                return String(v);
+            }
+        };
+        document.getElementById('actividadModalBody').innerHTML = `
+            <div class="detalle-row"><span class="detalle-label">Fecha:</span> <span class="detalle-value">${a.created_at ? formatDateTime(a.created_at) : '—'}</span></div>
+            <div class="detalle-row"><span class="detalle-label">Usuario:</span> <span class="detalle-value">${escapeHtml(a.usuario_nombre || ('#' + a.usuario_id))}</span></div>
+            <div class="detalle-row"><span class="detalle-label">Acción:</span> <span class="detalle-value">${escapeHtml(a.accion)} en ${escapeHtml(a.tabla)} #${a.registro_id ?? '—'}</span></div>
+            <div class="detalle-row"><span class="detalle-label">IP:</span> <span class="detalle-value">${escapeHtml(a.ip_address || '—')}</span></div>
+            <h5>Datos anteriores</h5>
+            <pre class="json-block">${escapeHtml(pretty(a.datos_anteriores))}</pre>
+            <h5>Datos nuevos</h5>
+            <pre class="json-block">${escapeHtml(pretty(a.datos_nuevos))}</pre>
+        `;
+        document.getElementById('actividadModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    } catch (error) {
+        showToast('error', 'Error', error.message || 'No se pudo cargar el detalle');
+    }
+};
+
+const closeActividadModal = () => {
+    document.getElementById('actividadModal').classList.remove('active');
+    document.body.style.overflow = '';
 };
 
 // ============================================
@@ -663,6 +801,10 @@ const changePassword = () => {
 document.addEventListener('DOMContentLoaded', () => {
     if (checkAuth()) {
         loadUser();
+        // Por defecto se concilian pendientes: filtro inicial en Pendientes
+        // (Limpiar lo devuelve a Todos)
+        document.getElementById('filterEstado').value = 'pendiente';
+        currentFilters = { estado: 'pendiente' };
         loadClientes();
     }
 });
@@ -682,5 +824,11 @@ window.searchOrdenantes = searchOrdenantes;
 window.onSearchInput = onSearchInput;
 window.applyFilters = applyFilters;
 window.clearFilters = clearFilters;
+window.openActividad = openActividad;
+window.loadActividad = loadActividad;
+window.aplicarFiltrosActividad = aplicarFiltrosActividad;
+window.limpiarFiltrosActividad = limpiarFiltrosActividad;
+window.openActividadDetalle = openActividadDetalle;
+window.closeActividadModal = closeActividadModal;
 window.logout = logout;
 window.changePassword = changePassword;

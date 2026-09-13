@@ -50,6 +50,10 @@
                         <span class="nav-item-icon"><i class="fas fa-user-shield"></i></span>
                         <span class="nav-text">Usuarios</span>
                     </a>
+                    <a href="#" class="nav-item" id="navActividad" style="display:none" onclick="event.preventDefault(); openActividad();">
+                        <span class="nav-item-icon"><i class="fas fa-history"></i></span>
+                        <span class="nav-text">Actividad</span>
+                    </a>
                 </div>
             </nav>
             
@@ -72,6 +76,13 @@
                     <h2 class="page-title">Conciliación</h2>
                 </div>
                 <div class="header-right">
+                    <div class="global-search">
+                        <div class="search-box">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" class="search-input" id="globalSearch" placeholder="Buscar... (/)" autocomplete="off">
+                        </div>
+                        <div class="global-search-results" id="globalSearchResults"></div>
+                    </div>
                     <div class="dropdown">
                         <button class="btn btn-ghost btn-icon" onclick="toggleDropdown(this)">
                             <i class="fas fa-user-circle"></i>
@@ -175,6 +186,75 @@
                         <!-- Contenido dinámico -->
                     </div>
                 </div>
+
+                <!-- Vista de Actividad (Auditoría, solo admin) -->
+                <div id="vistaActividad" class="vista-actual hidden">
+                    <div class="vista-header">
+                        <button class="btn btn-ghost" onclick="showVista('clientes')">
+                            <i class="fas fa-arrow-left"></i> Volver a Clientes
+                        </button>
+                        <h3 class="section-title">Registro de Actividad</h3>
+                    </div>
+                    <div class="filters-bar">
+                        <div class="filter-group">
+                            <label class="filter-label">Buscar:</label>
+                            <input type="text" class="filter-input" id="actFiltroTexto" placeholder="Usuario, acción, tabla..." oninput="aplicarFiltrosActividad()">
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Acción:</label>
+                            <select class="filter-select" id="actFiltroAccion" onchange="aplicarFiltrosActividad()">
+                                <option value="">Todas</option>
+                                <option value="crear">Crear</option>
+                                <option value="editar">Editar</option>
+                                <option value="eliminar">Eliminar</option>
+                                <option value="confirmar">Confirmar</option>
+                                <option value="desconfirmar">Desconfirmar</option>
+                                <option value="restaurar">Restaurar</option>
+                                <option value="cambiar_contraseña">Cambiar contraseña</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Tabla:</label>
+                            <select class="filter-select" id="actFiltroTabla" onchange="aplicarFiltrosActividad()">
+                                <option value="">Todas</option>
+                                <option value="usuarios">Usuarios</option>
+                                <option value="remeseros">Clientes</option>
+                                <option value="ordenantes">Ordenantes</option>
+                                <option value="remesas">Remesas</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Desde:</label>
+                            <input type="date" class="filter-input" id="actFiltroDesde" onchange="aplicarFiltrosActividad()">
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Hasta:</label>
+                            <input type="date" class="filter-input" id="actFiltroHasta" onchange="aplicarFiltrosActividad()">
+                        </div>
+                        <button class="btn btn-sm btn-secondary" onclick="limpiarFiltrosActividad()">
+                            <i class="fas fa-times"></i> Limpiar
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha/Hora</th>
+                                    <th>Usuario</th>
+                                    <th>Acción</th>
+                                    <th>Tabla</th>
+                                    <th>Registro</th>
+                                    <th>IP</th>
+                                    <th>Detalle</th>
+                                </tr>
+                            </thead>
+                            <tbody id="actividadBody">
+                                <tr><td colspan="7" class="text-center text-muted">Cargando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="actividadPaginacion"></div>
+                </div>
             </div>
         </main>
     </div>
@@ -252,11 +332,30 @@
         </div>
     </div>
     
+    <!-- Modal Detalle de Actividad -->
+    <div class="modal-backdrop" id="actividadModal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 class="modal-title">Detalle de actividad</h3>
+                <button class="modal-close" onclick="closeActividadModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="actividadModalBody">
+                <!-- Contenido dinámico -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeActividadModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast container -->
     <div id="toastContainer" class="toast-container"></div>
     
     <script src="/js/theme.js?v=5"></script>
     <script src="/js/api.js?v=5"></script>
+    <script src="/js/buscador.js?v=1"></script>
     <script src="/js/remesas.js?v=5"></script>
 </body>
 </html>

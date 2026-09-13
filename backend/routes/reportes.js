@@ -222,6 +222,46 @@ router.get('/pendientes', authenticateToken, async (req, res) => {
 });
 
 // ============================================
+// GET /api/reportes/buscar?q=nombre
+// Buscador global: clientes y ordenantes por inicial (nombres solamente)
+// ============================================
+router.get('/buscar', authenticateToken, async (req, res) => {
+    try {
+        const q = (req.query.q || '').trim();
+
+        if (q.length < 2) {
+            return res.status(400).json({ error: 'Escribe al menos 2 letras para buscar' });
+        }
+
+        // Escapar comodines del LIKE para que se busquen literales
+        const like = `${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
+        const cliResult = await db.query(`
+            SELECT id, nombre
+            FROM remeseros
+            WHERE activo = 1 AND nombre LIKE ? ESCAPE '\\'
+            ORDER BY nombre ASC
+            LIMIT 8
+        `, [like]);
+
+        const ordResult = await db.query(`
+            SELECT o.id, o.nombre, o.remesero_id, r.nombre as remesero_nombre
+            FROM ordenantes o
+            JOIN remeseros r ON o.remesero_id = r.id
+            WHERE o.activo = 1 AND r.activo = 1 AND o.nombre LIKE ? ESCAPE '\\'
+            ORDER BY o.nombre ASC
+            LIMIT 8
+        `, [like]);
+
+        res.json({ clientes: cliResult.rows, ordenantes: ordResult.rows });
+
+    } catch (error) {
+        console.error('Error en buscador global:', error);
+        res.status(500).json({ error: 'Error al buscar' });
+    }
+});
+
+// ============================================
 // GET /api/reportes/historial-remesero/:id
 // Historial completo de un remesero
 // ============================================
@@ -332,6 +372,153 @@ router.get('/historial-ordenante/:id', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Error al obtener historial:', error);
         res.status(500).json({ error: 'Error al obtener historial' });
+    }
+});
+
+module.exports = router;
+
+// ============================================
+// GET /api/reportes/auditoria
+// Registro de actividad (solo admin)
+// Filtros: pagina, limite, accion, tabla, fecha_desde, fecha_hasta
+// Últimos 15 días por defecto, acciones: crear, editar, eliminar, confirmar, desconfirmar, restaurar, cambiar_contraseña
+// ============================================
+router.get('/auditoria', authenticateToken, async (req, res) => {
+    try {
+        const { 
+            pagina = 1, 
+            limite = 50, 
+            accion, 
+            tabla, 
+            fecha_desde, 
+            fecha_hasta,
+            usuario_id,
+            q
+        } = req.query;
+
+        const page = Math.max(1, parseInt(pagina) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(limite) || 50));
+        const offset = (page - 1) * limit;
+
+        // Acciones permitidas para filtrar (las que pidió el cliente)
+        const accionesPermitidas = ['crear', 'editar', 'eliminar', 'confirmar', 'desconfirmar', 'restaurar', 'cambiar_contraseña'];
+        
+        let whereConditions = [];
+        const params = [];
+
+        // Por defecto últimos 15 días
+        const fechaDesdeDefault = new Date();
+        fechaDesdeDefault.setDate(fechaDesdeDefault.getDate() - 15);
+        const fechaDesdeDefaultStr = fechaDesdeDefault.toISOString().split('T')[0];
+
+        if (fecha_desde) {
+            whereConditions.push(`a.created_at >= ?`);
+            params.push(fecha_desde);
+        } else {
+            whereConditions.push(`a.created_at >= ?`);
+            params.push(fechaDesdeDefaultStr);
+        }
+
+        if (fecha_hasta) {
+            whereConditions.push(`a.created_at <= ?`);
+            params.push(fecha_hasta);
+        }
+
+        if (accion && accionesPermitidas.includes(accion)) {
+            whereConditions.push(`a.accion = ?`);
+            params.push(accion);
+        }
+
+        if (tabla) {
+            whereConditions.push(`a.tabla = ?`);
+            params.push(tabla);
+        }
+
+        if (usuario_id) {
+            whereConditions.push(`a.usuario_id = ?`);
+            params.push(usuario_id);
+        }
+
+        // Búsqueda libre en usuario, acción y tabla (por inicial)
+        if (q && q.trim().length >= 2) {
+            const like = `${q.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+            whereConditions.push(`(u.nombre LIKE ? ESCAPE '\\' OR a.accion LIKE ? ESCAPE '\\' OR a.tabla LIKE ? ESCAPE '\\')`);
+            params.push(like, like, like);
+        }
+
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+        // Total de registros (mismo JOIN que datos, por el filtro q sobre usuarios)
+        const countResult = await db.query(
+            `SELECT COUNT(*) as total FROM auditoria a LEFT JOIN usuarios u ON a.usuario_id = u.id ${whereClause}`,
+            params
+        );
+        const total = countResult.rows[0].total;
+
+        // Datos paginados con JOIN a usuarios para nombre
+        const dataResult = await db.query(`
+            SELECT 
+                a.id,
+                a.usuario_id,
+                u.nombre as usuario_nombre,
+                a.accion,
+                a.tabla,
+                a.registro_id,
+                a.datos_anteriores,
+                a.datos_nuevos,
+                a.ip_address,
+                a.created_at
+            FROM auditoria a
+            LEFT JOIN usuarios u ON a.usuario_id = u.id
+            ${whereClause}
+            ORDER BY a.created_at DESC
+            LIMIT ? OFFSET ?
+        `, [...params, limit, offset]);
+
+        res.json({
+            items: dataResult.rows,
+            total,
+            pagina: page,
+            totalPaginas: Math.ceil(total / limit)
+        });
+
+    } catch (error) {
+        console.error('Error al obtener auditoría:', error);
+        res.status(500).json({ error: 'Error al obtener auditoría' });
+    }
+});
+
+// GET /api/reportes/auditoria/:id - Detalle de una entrada de auditoría
+router.get('/auditoria/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await db.query(`
+            SELECT 
+                a.id,
+                a.usuario_id,
+                u.nombre as usuario_nombre,
+                a.accion,
+                a.tabla,
+                a.registro_id,
+                a.datos_anteriores,
+                a.datos_nuevos,
+                a.ip_address,
+                a.created_at
+            FROM auditoria a
+            LEFT JOIN usuarios u ON a.usuario_id = u.id
+            WHERE a.id = ?
+        `, [req.params.id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Registro de auditoría no encontrado' });
+        }
+
+        res.json({ auditoria: result.rows[0] });
+
+    } catch (error) {
+        console.error('Error al obtener detalle de auditoría:', error);
+        res.status(500).json({ error: 'Error al obtener detalle de auditoría' });
     }
 });
 
