@@ -164,7 +164,8 @@ const startServer = async () => {
 
                 const counts = {};
                 for (const t of ['usuarios', 'remeseros', 'ordenantes', 'remesas']) {
-                    const r = await db.query(`SELECT COUNT(*) as n FROM ${t}`);
+                    const whereActivo = (t === 'remeseros' || t === 'ordenantes') ? ' WHERE activo = 1' : '';
+                    const r = await db.query(`SELECT COUNT(*) as n FROM ${t}${whereActivo}`);
                     counts[t] = Number(r.rows[0].n);
                 }
 

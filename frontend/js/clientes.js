@@ -31,7 +31,9 @@ const checkAuth = () => {
 const loadClientes = async () => {
     try {
         const data = await clientesService.getAll();
-        allClientes = data.clientes;
+        // Defensa: aunque el backend ya filtra activo=1, filtrar aquí también
+        // por si hay caché o datos viejos en memoria
+        allClientes = (data.clientes || []).filter(c => Number(c.activo) === 1);
         renderClientes(allClientes);
     } catch (error) {
         console.error('Error al cargar clientes:', error);
@@ -508,7 +510,10 @@ const deleteCliente = async (id) => {
     try {
         await clientesService.delete(id);
         showToast('success', 'Éxito', 'Cliente eliminado correctamente');
-        loadClientes();
+        // Optimista: quitar de memoria para que no parpadee el viejo
+        allClientes = allClientes.filter(c => c.id !== id);
+        renderClientes(allClientes);
+        await loadClientes();
     } catch (error) {
         showToast('error', 'Error', 'No se pudo eliminar el cliente');
     }

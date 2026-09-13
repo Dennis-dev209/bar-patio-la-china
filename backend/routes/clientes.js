@@ -28,6 +28,7 @@ router.get('/', authenticateToken, async (req, res) => {
             FROM remeseros r
             LEFT JOIN ordenantes o ON r.id = o.remesero_id AND o.activo = 1
             LEFT JOIN remesas rem ON o.id = rem.ordenante_id
+            WHERE r.activo = 1
             GROUP BY r.id, r.nombre, r.telefono, r.descripcion, r.activo, r.created_at
             ORDER BY r.nombre ASC
         `);
@@ -207,6 +208,9 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
 
         // También desactivar sus ordenantes
         await db.query('UPDATE ordenantes SET activo = 0 WHERE remesero_id = ?', [id]);
+
+        // Persistir en SQLite local (Turso es auto)
+        if (db.save) await db.save();
 
         // Registrar auditoría
         logAudit(db, req.user.id, 'eliminar', 'remeseros', id, anteriorResult.rows[0], null, req.ip);
