@@ -107,6 +107,40 @@ const updateStats = (stats, porMoneda = []) => {
     document.getElementById('porcentajeConfirmado').textContent = `${porcentaje}%`;
 };
 
+// Formateo legible de período: semanal "2026-W36" → "01–07 sep 2026 (Sem. 36)"
+const formatPeriodo = (periodo) => {
+    const m = String(periodo || '').match(/^(\d{4})-W(\d{2})$/);
+    if (!m) return escapeHtml(periodo);
+    const year = parseInt(m[1], 10), week = parseInt(m[2], 10);
+    // Coincide con SQLite %W (lunes primer día, semana 00 = días antes del primer lunes)
+    const jan1 = new Date(Date.UTC(year, 0, 1));
+    const jan1Day = jan1.getUTCDay() || 7; // 1=lun
+    const firstMon = new Date(jan1); firstMon.setUTCDate(1 + (jan1Day === 1 ? 0 : 8 - jan1Day));
+    const mon = new Date(firstMon); mon.setUTCDate(firstMon.getUTCDate() + (week - 1) * 7);
+    if (week === 0) { mon.setUTCDate(firstMon.getUTCDate() - 7); }
+    const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+    const fmt = (d) => d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', '');
+    const monStr = fmt(mon), sunStr = fmt(sun);
+    const rango = mon.getUTCMonth() === sun.getUTCMonth()
+        ? `${String(mon.getUTCDate()).padStart(2,'0')}–${String(sun.getUTCDate()).padStart(2,'0')} ${sun.toLocaleDateString('es-ES',{month:'short',year:'numeric'}).replace('.','')}`
+        : `${monStr} – ${sunStr}`;
+    return `${rango} <small class="text-muted">(Sem. ${week})</small>`;
+};
+
+const formatPeriodoExcel = (periodo) => {
+    const m = String(periodo || '').match(/^(\d{4})-W(\d{2})$/);
+    if (!m) return periodo;
+    const year = parseInt(m[1], 10), week = parseInt(m[2], 10);
+    const jan1 = new Date(Date.UTC(year, 0, 1));
+    const jan1Day = jan1.getUTCDay() || 7;
+    const firstMon = new Date(jan1); firstMon.setUTCDate(1 + (jan1Day === 1 ? 0 : 8 - jan1Day));
+    const mon = new Date(firstMon); mon.setUTCDate(firstMon.getUTCDate() + (week - 1) * 7);
+    if (week === 0) { mon.setUTCDate(firstMon.getUTCDate() - 7); }
+    const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+    const fmt = (d) => `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}`;
+    return `${fmt(mon)} – ${fmt(sun)} (Sem. ${week})`;
+};
+
 // ============================================
 // RENDERIZAR TABLA POR PERÍODO
 // ============================================
@@ -127,7 +161,7 @@ const renderPeriodoTable = (data) => {
     
     tbody.innerHTML = data.map(row => `
         <tr>
-            <td><strong>${escapeHtml(row.periodo)}</strong></td>
+            <td><strong>${formatPeriodo(row.periodo)}</strong></td>
             <td>${escapeHtml(row.moneda) || '—'}</td>
             <td>${row.total_remesas}</td>
             <td>${row.confirmadas}</td>
@@ -211,7 +245,7 @@ const exportToExcel = () => {
             const periodoHeaders = ['Período', 'Moneda', 'Total Remesas', 'Confirmadas', 'Pendientes', 'Monto Total', 'Monto Confirmado', 'Monto Pendiente'];
             const rows = reportData.porPeriodo.length > 0
                 ? reportData.porPeriodo.map(row => [
-                    row.periodo, row.moneda || '—', row.total_remesas, row.confirmadas, row.pendientes,
+                    formatPeriodoExcel(row.periodo), row.moneda || '—', row.total_remesas, row.confirmadas, row.pendientes,
                     row.monto_total, row.monto_confirmado, row.monto_pendiente
                   ])
                 : [['Sin datos para los filtros actuales', '—', 0, 0, 0, 0, 0, 0]];
@@ -307,7 +341,7 @@ const exportToPDF = () => {
             const filasPer = reportData.porPeriodo.length > 0 ? reportData.porPeriodo : [{ periodo: 'Sin datos', moneda: '—', total_remesas: 0, confirmadas: 0, pendientes: 0, monto_total: 0, monto_confirmado: 0, monto_pendiente: 0 }];
             filasPer.forEach(row => {
                 if (y > 270) { doc.addPage(); y = 20; }
-                const periodo = doc.splitTextToSize(row.periodo || '', 26)[0];
+                const periodo = doc.splitTextToSize(formatPeriodoExcel(row.periodo) || '', 42)[0];
                 doc.text(periodo, 20, y);
                 doc.text(row.moneda || '—', 50, y);
                 doc.text(String(row.total_remesas || 0), 70, y);
