@@ -56,9 +56,6 @@ router.post('/login', async (req, res) => {
             { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
         );
 
-        // Registrar auditoría
-        logAudit(db, usuario.id, 'login', 'usuarios', usuario.id, null, null, req.ip);
-
         res.json({
             message: 'Login exitoso',
             token,

@@ -642,10 +642,8 @@ const loadUser = () => {
     if (user) {
         document.getElementById('userName').querySelector('span').textContent = user.nombre;
         // Registro de Actividad: solo visible para admin
-        if (user.rol === 'admin') {
-            const navAct = document.getElementById('navActividad');
-            if (navAct) navAct.style.display = '';
-        }
+        // buscador.js ya maneja navActividad en todas las páginas
+        void 0;
     }
 };
 
@@ -693,7 +691,7 @@ const renderActividad = (items, total) => {
         body.innerHTML = items.map(a => `
             <tr>
                 <td>${a.created_at ? formatDateTime(a.created_at) : '—'}</td>
-                <td>${escapeHtml(a.usuario_nombre || ('#' + a.usuario_id))}</td>
+                <td>${escapeHtml(a.usuario_nombre || ('#' + a.usuario_id))} <small class="text-muted">(${escapeHtml(a.usuario_rol || '—')})</small></td>
                 <td><span class="badge badge-info">${escapeHtml(a.accion)}</span></td>
                 <td>${escapeHtml(a.tabla)}</td>
                 <td>${a.registro_id ?? '—'}</td>
@@ -760,7 +758,7 @@ const openActividadDetalle = async (id) => {
         };
         document.getElementById('actividadModalBody').innerHTML = `
             <div class="detalle-row"><span class="detalle-label">Fecha:</span> <span class="detalle-value">${a.created_at ? formatDateTime(a.created_at) : '—'}</span></div>
-            <div class="detalle-row"><span class="detalle-label">Usuario:</span> <span class="detalle-value">${escapeHtml(a.usuario_nombre || ('#' + a.usuario_id))}</span></div>
+            <div class="detalle-row"><span class="detalle-label">Usuario:</span> <span class="detalle-value">${escapeHtml(a.usuario_nombre || ('#' + a.usuario_id))} <small class="text-muted">(${escapeHtml(a.usuario_rol || '—')})</small></span></div>
             <div class="detalle-row"><span class="detalle-label">Acción:</span> <span class="detalle-value">${escapeHtml(a.accion)} en ${escapeHtml(a.tabla)} #${a.registro_id ?? '—'}</span></div>
             <div class="detalle-row"><span class="detalle-label">IP:</span> <span class="detalle-value">${escapeHtml(a.ip_address || '—')}</span></div>
             <h5>Datos anteriores</h5>
@@ -801,6 +799,15 @@ const changePassword = () => {
 document.addEventListener('DOMContentLoaded', () => {
     if (checkAuth()) {
         loadUser();
+        // Apertura directa al Registro de Actividad desde cualquier página
+        if (new URLSearchParams(window.location.search).get('vista') === 'actividad') {
+            window.history.replaceState({}, '', window.location.pathname);
+            // Navegar directo a la vista sin pasar por la lista de clientes
+            document.getElementById('filterEstado').value = '';
+            currentFilters = {};
+            openActividad();
+            return;
+        }
         // Por defecto se concilian pendientes: filtro inicial en Pendientes
         // (Limpiar lo devuelve a Todos)
         document.getElementById('filterEstado').value = 'pendiente';

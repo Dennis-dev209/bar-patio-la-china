@@ -90,6 +90,13 @@ const renderBuscador = (clientes, ordenantes, box) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     initBuscador();
+    // Mostrar item Actividad solo para admin (en todas las páginas que lo tengan)
+    try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.rol === 'admin') {
+            document.querySelectorAll('#navActividad').forEach(el => el.style.display = '');
+        }
+    } catch (e) { /* noop */ }
 });
 
 document.addEventListener('keydown', (e) => {
