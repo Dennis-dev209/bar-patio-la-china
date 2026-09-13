@@ -381,7 +381,7 @@ module.exports = router;
 // GET /api/reportes/auditoria
 // Registro de actividad (solo admin)
 // Filtros: pagina, limite, accion, tabla, fecha_desde, fecha_hasta
-// Últimos 15 días por defecto, acciones: crear, editar, eliminar, confirmar, desconfirmar, restaurar, cambiar_contraseña
+// Últimos 7 días por defecto, acciones: crear, editar, eliminar, confirmar, desconfirmar, restaurar, cambiar_contraseña
 // ============================================
 router.get('/auditoria', authenticateToken, async (req, res) => {
     try {
@@ -406,9 +406,9 @@ router.get('/auditoria', authenticateToken, async (req, res) => {
         let whereConditions = [];
         const params = [];
 
-        // Por defecto últimos 15 días
+        // Por defecto últimos 7 días
         const fechaDesdeDefault = new Date();
-        fechaDesdeDefault.setDate(fechaDesdeDefault.getDate() - 15);
+        fechaDesdeDefault.setDate(fechaDesdeDefault.getDate() - 7);
         const fechaDesdeDefaultStr = fechaDesdeDefault.toISOString().split('T')[0];
 
         if (fecha_desde) {
