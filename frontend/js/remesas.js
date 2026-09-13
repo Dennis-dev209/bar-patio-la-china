@@ -692,13 +692,16 @@ const renderActividad = (items, total) => {
             <tr>
                 <td>${a.created_at ? formatDateTime(a.created_at) : '—'}</td>
                 <td>${escapeHtml(a.usuario_nombre || ('#' + a.usuario_id))} <small class="text-muted">(${escapeHtml(a.usuario_rol || '—')})</small></td>
-                <td><span class="badge badge-info">${escapeHtml(a.accion)}</span></td>
+                <td><span class="badge badge-info">${escapeHtml(a.accion === 'eliminar' ? 'eliminar registro' : a.accion)}</span></td>
                 <td>${escapeHtml(a.tabla)}</td>
                 <td>${a.registro_id ?? '—'}</td>
                 <td>${escapeHtml(a.ip_address || '—')}</td>
-                <td>
+                <td style="display:flex;gap:6px">
                     <button class="btn btn-sm btn-outline" onclick="openActividadDetalle(${a.id})" title="Ver detalle">
                         <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarActividad(${a.id})" title="Eliminar registro (admin)">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </td>
             </tr>
@@ -778,6 +781,18 @@ const closeActividadModal = () => {
     document.body.style.overflow = '';
 };
 
+const eliminarActividad = async (id) => {
+    const ok = await showConfirm('¿Eliminar este registro del historial? Esta acción no se puede deshacer.');
+    if (!ok) return;
+    try {
+        await reportesService.deleteAuditoria(id);
+        showToast('success', 'Eliminado', 'Registro eliminado');
+        loadActividad(actPagina);
+    } catch (error) {
+        showToast('error', 'Error', error.message || 'No se pudo eliminar');
+    }
+};
+
 // ============================================
 // LOGOUT
 // ============================================
@@ -837,5 +852,6 @@ window.aplicarFiltrosActividad = aplicarFiltrosActividad;
 window.limpiarFiltrosActividad = limpiarFiltrosActividad;
 window.openActividadDetalle = openActividadDetalle;
 window.closeActividadModal = closeActividadModal;
+window.eliminarActividad = eliminarActividad;
 window.logout = logout;
 window.changePassword = changePassword;

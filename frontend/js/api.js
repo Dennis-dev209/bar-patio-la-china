@@ -191,7 +191,8 @@ const reportesService = {
         const queryString = new URLSearchParams(params).toString();
         return api.get(`/reportes/auditoria?${queryString}`);
     },
-    getAuditoriaDetalle: (id) => api.get(`/reportes/auditoria/${id}`)
+    getAuditoriaDetalle: (id) => api.get(`/reportes/auditoria/${id}`),
+    deleteAuditoria: (id) => api.delete(`/reportes/auditoria/${id}`)
 };
 
 // ============================================

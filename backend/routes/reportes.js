@@ -524,4 +524,25 @@ router.get('/auditoria/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// DELETE /api/reportes/auditoria/:id - Eliminar registro (solo admin)
+router.delete('/auditoria/:id', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.rol !== 'admin') {
+            return res.status(403).json({ error: 'Solo administradores pueden eliminar registros' });
+        }
+        const result = await db.query('DELETE FROM auditoria WHERE id = ?', [req.params.id]);
+        // Turso/libsql no devuelve affectedRows consistente; verificamos existencia previa
+        if (result.rowsAffected === 0) {
+            const check = await db.query('SELECT id FROM auditoria WHERE id = ?', [req.params.id]);
+            if (check.rows.length > 0) {
+                return res.status(500).json({ error: 'No se pudo eliminar' });
+            }
+        }
+        res.json({ message: 'Registro eliminado' });
+    } catch (error) {
+        console.error('Error al eliminar auditoría:', error);
+        res.status(500).json({ error: 'Error al eliminar registro' });
+    }
+});
+
 module.exports = router;
