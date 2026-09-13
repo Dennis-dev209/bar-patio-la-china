@@ -178,11 +178,16 @@ const renderRemeseroTable = (data) => {
 const exportToExcel = () => {
     try {
         const wb = XLSX.utils.book_new();
+        const tipo = document.getElementById('reportTipo')?.value || 'mensual';
+        const fIni = document.getElementById('reportFechaInicio')?.value || '';
+        const fFin = document.getElementById('reportFechaFin')?.value || '';
+        const filtroInfo = `Filtros: tipo=${tipo}${fIni ? ` desde=${fIni}` : ''}${fFin ? ` hasta=${fFin}` : ''}`;
         
         // Hoja de resumen (montos en moneda extranjera, una fila por moneda)
         const resumenData = [
             ['RESUMEN DE REMESAS'],
             ['Bar Patio La China'],
+            [filtroInfo],
             [''],
             ['Concepto', 'Moneda', 'Monto'],
             ...(reportData.porMoneda.length > 0
@@ -201,24 +206,30 @@ const exportToExcel = () => {
         const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
         XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
         
-        // Hoja por período
-        if (reportData.porPeriodo.length > 0) {
+        // Hoja por período (siempre, aunque esté vacía deja trazabilidad)
+        {
             const periodoHeaders = ['Período', 'Moneda', 'Total Remesas', 'Confirmadas', 'Pendientes', 'Monto Total', 'Monto Confirmado', 'Monto Pendiente'];
-            const periodoData = [periodoHeaders, ...reportData.porPeriodo.map(row => [
-                row.periodo, row.moneda || '—', row.total_remesas, row.confirmadas, row.pendientes,
-                row.monto_total, row.monto_confirmado, row.monto_pendiente
-            ])];
+            const rows = reportData.porPeriodo.length > 0
+                ? reportData.porPeriodo.map(row => [
+                    row.periodo, row.moneda || '—', row.total_remesas, row.confirmadas, row.pendientes,
+                    row.monto_total, row.monto_confirmado, row.monto_pendiente
+                  ])
+                : [['Sin datos para los filtros actuales', '—', 0, 0, 0, 0, 0, 0]];
+            const periodoData = [periodoHeaders, ...rows];
             const wsPeriodo = XLSX.utils.aoa_to_sheet(periodoData);
             XLSX.utils.book_append_sheet(wb, wsPeriodo, 'Por Período');
         }
         
-        // Hoja por remesero
-        if (reportData.porRemesero.length > 0) {
+        // Hoja por cliente (siempre, aunque esté vacía)
+        {
             const remeseroHeaders = ['Cliente', 'Moneda', 'Total Remesas', 'Confirmadas', 'Pendientes', 'Monto Total', 'Monto Confirmado', 'Monto Pendiente'];
-            const remeseroData = [remeseroHeaders, ...reportData.porRemesero.map(row => [
-                row.nombre, row.moneda || '—', row.total_remesas, row.confirmadas, row.pendientes,
-                row.monto_total, row.monto_confirmado, row.monto_pendiente
-            ])];
+            const rows = reportData.porRemesero.length > 0
+                ? reportData.porRemesero.map(row => [
+                    row.nombre, row.moneda || '—', row.total_remesas, row.confirmadas, row.pendientes,
+                    row.monto_total, row.monto_confirmado, row.monto_pendiente
+                  ])
+                : [['Sin datos para los filtros actuales', '—', 0, 0, 0, 0, 0, 0]];
+            const remeseroData = [remeseroHeaders, ...rows];
             const wsRemesero = XLSX.utils.aoa_to_sheet(remeseroData);
             XLSX.utils.book_append_sheet(wb, wsRemesero, 'Por Cliente');
         }
@@ -252,6 +263,11 @@ const exportToPDF = () => {
         
         doc.setFontSize(10);
         doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 105, 35, { align: 'center' });
+        const tipo = document.getElementById('reportTipo')?.value || 'mensual';
+        const fIni = document.getElementById('reportFechaInicio')?.value || '';
+        const fFin = document.getElementById('reportFechaFin')?.value || '';
+        doc.setFontSize(8);
+        doc.text(`Filtros: tipo=${tipo}${fIni ? ` desde=${fIni}` : ''}${fFin ? ` hasta=${fFin}` : ''}`, 105, 40, { align: 'center' });
         
         // Resumen
         let y = 50;
@@ -277,8 +293,37 @@ const exportToPDF = () => {
         doc.text(`Pendientes: ${reportData.resumen.remesas_pendientes || 0}`, 20, y);
         y += 15;
         
+        // Movimientos por Período
+        {
+            if (y > 240) { doc.addPage(); y = 20; }
+            doc.setFontSize(14);
+            doc.text('Movimientos por Período', 20, y);
+            y += 10;
+            doc.setFontSize(8);
+            doc.text('Período', 20, y); doc.text('Moneda', 50, y); doc.text('Remesas', 70, y);
+            doc.text('Conf.', 88, y); doc.text('Pend.', 104, y); doc.text('Monto Total', 122, y);
+            doc.text('Confirmado', 150, y); doc.text('Pendiente', 178, y);
+            y += 6;
+            const filasPer = reportData.porPeriodo.length > 0 ? reportData.porPeriodo : [{ periodo: 'Sin datos', moneda: '—', total_remesas: 0, confirmadas: 0, pendientes: 0, monto_total: 0, monto_confirmado: 0, monto_pendiente: 0 }];
+            filasPer.forEach(row => {
+                if (y > 270) { doc.addPage(); y = 20; }
+                const periodo = doc.splitTextToSize(row.periodo || '', 26)[0];
+                doc.text(periodo, 20, y);
+                doc.text(row.moneda || '—', 50, y);
+                doc.text(String(row.total_remesas || 0), 70, y);
+                doc.text(String(row.confirmadas || 0), 88, y);
+                doc.text(String(row.pendientes || 0), 104, y);
+                doc.text(formatCurrency(row.monto_total || 0, row.moneda), 122, y);
+                doc.text(formatCurrency(row.monto_confirmado || 0, row.moneda), 150, y);
+                doc.text(formatCurrency(row.monto_pendiente || 0, row.moneda), 178, y);
+                y += 6;
+            });
+            y += 8;
+        }
+
         // Por Cliente
-        if (reportData.porRemesero.length > 0) {
+        if (reportData.porRemesero.length > 0 || reportData.porPeriodo.length > 0) {
+            if (y > 240) { doc.addPage(); y = 20; }
             doc.setFontSize(14);
             doc.text('Movimientos por Cliente', 20, y);
             y += 10;
@@ -293,12 +338,14 @@ const exportToPDF = () => {
             y += 7;
             
             // Datos
-            reportData.porRemesero.forEach(row => {
+            const filasCli = reportData.porRemesero.length > 0 ? reportData.porRemesero : [{ nombre: 'Sin datos para los filtros actuales', moneda: '—', total_remesas: 0, confirmadas: 0, pendientes: 0, monto_total: 0 }];
+            filasCli.forEach(row => {
                 if (y > 270) {
                     doc.addPage();
                     y = 20;
                 }
-                doc.text(row.nombre || '', 20, y);
+                const nombre = doc.splitTextToSize(row.nombre || '', 50)[0];
+                doc.text(nombre, 20, y);
                 doc.text(String(row.total_remesas || 0), 75, y);
                 doc.text(String(row.confirmadas || 0), 95, y);
                 doc.text(String(row.pendientes || 0), 120, y);
