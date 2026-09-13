@@ -14,7 +14,7 @@ const checkAuth = () => {
     return true;
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     if (!checkAuth()) return;
     loadUserInfo();
     checkPending();
@@ -27,7 +27,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('vistaClientesLanding').classList.add('hidden');
         document.getElementById('vistaOrdenantes').classList.remove('hidden');
         document.getElementById('backBtn').style.display = 'inline-flex';
-        loadOrdenantes();
+        await loadOrdenantes();
+        // Apertura directa al detalle (desde Recientes o Buscador global)
+        const ordId = new URLSearchParams(window.location.search).get('ordenante');
+        if (ordId) {
+            window.history.replaceState({}, '', window.location.pathname);
+            showDetalles(parseInt(ordId));
+        }
     } else {
         loadClientsLanding();
     }
@@ -144,6 +150,7 @@ function goToOrdenantes(remeseroId) {
         currentRemeseroId = remeseroId;
         const found = landingClientes.find(c => c.id === remeseroId);
         if (found) currentRemeseroNombre = found.nombre;
+        pushReciente('cliente', { id: remeseroId, nombre: currentRemeseroNombre });
         window.history.pushState({}, '', `/ordenantes/${remeseroId}`);
         document.getElementById('vistaClientesLanding').classList.add('hidden');
         document.getElementById('vistaOrdenantes').classList.remove('hidden');
@@ -364,6 +371,7 @@ async function showDetalles(ordenanteId) {
     try {
         const result = await ordenantesService.getDetalles(ordenanteId);
         const { ordenante, depositos, estadisticas } = result;
+        pushReciente('ordenante', { id: ordenanteId, remeseroId: currentRemeseroId, nombre: ordenante.nombre });
         currentDetallesOrdenanteId = ordenanteId;
         currentDetallesDepositos = depositos || [];
 

@@ -212,6 +212,7 @@ const viewClienteDetails = async (id) => {
     try {
         const data = await clientesService.getById(id);
         const cliente = data.cliente;
+        pushReciente('cliente', { id, nombre: cliente.nombre });
         const stats = data.estadisticas;
         const ordenantes = [...(data.ordenantes || [])].sort((a, b) => (Number(b.monto_total) || 0) - (Number(a.monto_total) || 0));
         currentDetallesCliente = { cliente, ordenantes, estadisticas: stats };
@@ -599,10 +600,15 @@ const changePassword = () => {
 // INICIALIZAR
 // ============================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    if (checkAuth()) {
-        loadUser();
-        loadClientes();
+document.addEventListener('DOMContentLoaded', async () => {
+    if (!checkAuth()) return;
+    loadUser();
+    await loadClientes();
+    // Apertura directa al detalle (desde Recientes o Buscador global)
+    const detId = new URLSearchParams(window.location.search).get('detalle');
+    if (detId) {
+        window.history.replaceState({}, '', window.location.pathname);
+        viewClienteDetails(parseInt(detId));
     }
 });
 

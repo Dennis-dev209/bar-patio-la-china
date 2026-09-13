@@ -75,6 +75,13 @@
                     <h2 class="page-title" id="pageTitle">Selecciona un Cliente</h2>
                 </div>
                 <div class="header-right">
+                    <div class="global-search">
+                        <div class="search-box">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" class="search-input" id="globalSearch" placeholder="Buscar... (/)" autocomplete="off">
+                        </div>
+                        <div class="global-search-results" id="globalSearchResults"></div>
+                    </div>
                     <div class="dropdown">
                         <button class="btn btn-ghost btn-icon" onclick="toggleDropdown(this)">
                             <i class="fas fa-user-circle"></i>
@@ -371,6 +378,7 @@
     
     <script src="/js/theme.js?v=5"></script>
     <script src="/js/api.js?v=5"></script>
+    <script src="/js/buscador.js?v=1"></script>
     <script src="/js/ordenantes.js?v=5"></script>
 </body>
 </html>

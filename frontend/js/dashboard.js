@@ -125,6 +125,36 @@ const confirmarRemesa = async (id) => {
 };
 
 // ============================================
+// VISITADOS RECIENTEMENTE (accesos directos al detalle)
+// ============================================
+
+const renderRecientes = () => {
+    const card = document.getElementById('recientesCard');
+    const list = document.getElementById('recientesList');
+    if (!card || !list) return;
+    
+    const recientes = getRecientes();
+    if (!recientes || recientes.length === 0) {
+        card.style.display = 'none';
+        return;
+    }
+    
+    card.style.display = '';
+    list.innerHTML = recientes.map(r => {
+        const esCliente = r.tipo === 'cliente';
+        const url = esCliente
+            ? `/clientes?detalle=${r.id}`
+            : `/ordenantes/${r.remeseroId}?ordenante=${r.id}`;
+        return `
+            <a href="${url}" class="quick-action-btn">
+                <i class="fas ${esCliente ? 'fa-users' : 'fa-user'}"></i>
+                <span>${escapeHtml(r.nombre) || (esCliente ? 'Cliente' : 'Ordenante')}</span>
+            </a>
+        `;
+    }).join('');
+};
+
+// ============================================
 // SIDEBAR TOGGLE
 // ============================================
 
@@ -188,6 +218,7 @@ const changePassword = async () => {
 document.addEventListener('DOMContentLoaded', () => {
     if (checkAuth()) {
         loadUser();
+        renderRecientes();
         loadDashboardData();
     }
 });

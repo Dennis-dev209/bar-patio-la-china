@@ -71,6 +71,13 @@
                     <h2 class="page-title">Clientes</h2>
                 </div>
                 <div class="header-right">
+                    <div class="global-search">
+                        <div class="search-box">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" class="search-input" id="globalSearch" placeholder="Buscar... (/)" autocomplete="off">
+                        </div>
+                        <div class="global-search-results" id="globalSearchResults"></div>
+                    </div>
                     <div class="search-box">
                         <i class="fas fa-search search-icon"></i>
                         <input type="text" class="search-input" placeholder="Buscar cliente..." id="searchInput" onkeyup="filterClientes()">
@@ -185,6 +192,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="/js/theme.js?v=6"></script>
     <script src="/js/api.js?v=5"></script>
+    <script src="/js/buscador.js?v=1"></script>
     <script src="/js/clientes.js?v=7"></script>
 </body>
 </html>

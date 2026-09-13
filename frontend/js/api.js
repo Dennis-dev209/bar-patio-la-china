@@ -186,7 +186,12 @@ const reportesService = {
         const queryString = new URLSearchParams(params).toString();
         return api.get(`/reportes/historial-remesero/${id}?${queryString}`);
     },
-    getHistorialOrdenante: (id) => api.get(`/reportes/historial-ordenante/${id}`)
+    getHistorialOrdenante: (id) => api.get(`/reportes/historial-ordenante/${id}`),
+    getAuditoria: (params = {}) => {
+        const queryString = new URLSearchParams(params).toString();
+        return api.get(`/reportes/auditoria?${queryString}`);
+    },
+    getAuditoriaDetalle: (id) => api.get(`/reportes/auditoria/${id}`)
 };
 
 // ============================================
@@ -418,6 +423,31 @@ if (document.readyState === 'loading') {
     initIdleWatcher();
 }
 
+// Visitados recientemente (solo en este navegador, sin backend).
+// Se usa en Inicio como accesos directos.
+const pushReciente = (tipo, item) => {
+    try {
+        let list = JSON.parse(localStorage.getItem('recientes') || '[]');
+        list = list.filter(r => !(r.tipo === tipo && r.id === item.id));
+        list.unshift({
+            tipo,
+            id: item.id,
+            remeseroId: item.remeseroId || null,
+            nombre: item.nombre || '',
+            ts: Date.now()
+        });
+        localStorage.setItem('recientes', JSON.stringify(list.slice(0, 6)));
+    } catch (e) { /* no bloquear la app por esto */ }
+};
+
+const getRecientes = () => {
+    try {
+        return JSON.parse(localStorage.getItem('recientes') || '[]');
+    } catch (e) {
+        return [];
+    }
+};
+
 // Confirm dialog
 const showConfirm = (message) => {
     return new Promise((resolve) => {
@@ -441,6 +471,8 @@ window.formatDate = formatDate;
 window.formatDateTime = formatDateTime;
 window.getInitials = getInitials;
 window.escapeHtml = escapeHtml;
+window.pushReciente = pushReciente;
+window.getRecientes = getRecientes;
 window.formatMontosPorMoneda = formatMontosPorMoneda;
 window.syncTasaForMoneda = syncTasaForMoneda;
 window.showToast = showToast;
