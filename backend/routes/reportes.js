@@ -66,6 +66,10 @@ router.get('/por-periodo', authenticateToken, async (req, res) => {
                 groupBy = "DATE(rem.fecha_deposito)";
                 dateFormat = '%Y-%m-%d';
                 break;
+            case 'semanal':
+                groupBy = "strftime('%Y-W%W', rem.fecha_deposito)";
+                dateFormat = '%Y-W%W';
+                break;
             case 'mensual':
                 groupBy = "strftime('%Y-%m', rem.fecha_deposito)";
                 dateFormat = '%Y-%m';
