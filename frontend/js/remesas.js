@@ -182,9 +182,17 @@ const selectOrdenante = async (ordenanteId, remeseroId) => {
 // RENDERIZAR LISTA DE DEPÓSITOS
 // ============================================
 
+const isAdmin = () => {
+    try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        return user.rol === 'admin';
+    } catch { return false; }
+};
+
 const renderDepositosList = (remesas) => {
     const container = document.getElementById('depositosList');
     currentDepositos = remesas || [];
+    const admin = isAdmin();
     
     if (!remesas || remesas.length === 0) {
         container.innerHTML = `
@@ -222,6 +230,7 @@ const renderDepositosList = (remesas) => {
                 ` : ''}
             </div>
             <div class="deposito-footer">
+                ${admin ? `
                 <button class="confirm-btn ${remesa.estado}" onclick="toggleConfirmacion(${remesa.id})">
                     ${remesa.estado === 'pendiente' ? 
                         '<i class="fas fa-check"></i> Confirmar' : 
@@ -230,6 +239,9 @@ const renderDepositosList = (remesas) => {
                 <button class="btn btn-ghost btn-sm" onclick="deleteDeposito(${remesa.id})">
                     <i class="fas fa-trash"></i>
                 </button>
+                ` : `
+                <span class="text-muted" style="font-size:12px;">Solo admin puede confirmar/editar</span>
+                `}
             </div>
         </div>
     `).join('');
@@ -255,12 +267,13 @@ const toggleConfirmacion = async (id) => {
     if (!confirmed) return;
     
     try {
+        let resp;
         if (estadoActual === 'pendiente') {
-            await remesasService.confirm(id);
-            showToast('success', 'Éxito', 'Pago confirmado');
+            resp = await remesasService.confirm(id);
+            showToast('success', 'Éxito', resp?.message || 'Pago confirmado');
         } else {
-            await remesasService.unconfirm(id);
-            showToast('success', 'Éxito', 'Pago marcado como pendiente');
+            resp = await remesasService.unconfirm(id);
+            showToast('success', 'Éxito', resp?.message || 'Pago marcado como pendiente');
         }
         
         // Recargar la vista actual (depósitos o resultados de búsqueda)
@@ -270,7 +283,12 @@ const toggleConfirmacion = async (id) => {
             selectOrdenante(currentOrdenanteId, currentRemeseroId, document.getElementById('depositosTitle').textContent.replace('Depósitos de ', ''));
         }
     } catch (error) {
-        showToast('error', 'Error', 'No se pudo actualizar el estado');
+        const msg = error?.message || '';
+        if (msg.includes('403') || msg.toLowerCase().includes('admin')) {
+            showToast('error', 'Sin permiso', 'Solo administradores pueden confirmar pagos');
+        } else {
+            showToast('error', 'Error', 'No se pudo actualizar el estado');
+        }
     }
 };
 

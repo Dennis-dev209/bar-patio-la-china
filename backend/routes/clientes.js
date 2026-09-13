@@ -49,9 +49,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Obtener remesero
+        // Obtener remesero - solo activos (eliminados devuelven 404)
         const remeseroResult = await db.query(
-            'SELECT * FROM remeseros WHERE id = ?',
+            'SELECT * FROM remeseros WHERE id = ? AND activo = 1',
             [id]
         );
 

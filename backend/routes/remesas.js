@@ -32,8 +32,8 @@ router.get('/', authenticateToken, async (req, res) => {
                 r.nombre as remesero_nombre,
                 u.nombre as confirmado_por_nombre
             FROM remesas rem
-            JOIN ordenantes o ON rem.ordenante_id = o.id
-            JOIN remeseros r ON rem.remesero_id = r.id
+            JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
+            JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
             LEFT JOIN usuarios u ON rem.confirmado_por = u.id
             WHERE 1=1
         `;
@@ -112,8 +112,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
                 r.telefono as remesero_telefono,
                 u.nombre as confirmado_por_nombre
             FROM remesas rem
-            JOIN ordenantes o ON rem.ordenante_id = o.id
-            JOIN remeseros r ON rem.remesero_id = r.id
+            JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
+            JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
             LEFT JOIN usuarios u ON rem.confirmado_por = u.id
             WHERE rem.id = ?
         `, [id]);
@@ -184,17 +184,13 @@ router.post('/', authenticateToken, async (req, res) => {
         }
 
         // Validar que tasa_cambio sea positiva si se proporciona (antes del default)
+        // Moneda única EUR: la tasa la escribe el usuario (EUR->CUP), no hay rama CUP
         let tasa = 1.0;
         if (tasa_cambio !== undefined && tasa_cambio !== null && tasa_cambio !== '') {
             tasa = parseTasa(tasa_cambio);
             if (tasa === null) {
                 return res.status(400).json({ error: 'La tasa de cambio debe ser un número mayor a 0' });
             }
-        }
-
-        // Si la moneda es CUP, la tasa siempre es 1 (se ignora la enviada)
-        if (monedaCode === 'CUP') {
-            tasa = 1.0;
         }
 
         // Validar cantidad_deposito si se proporciona
@@ -206,14 +202,28 @@ router.post('/', authenticateToken, async (req, res) => {
             }
         }
 
-        // Verificar que el ordenante exista
+        // Verificar que el ordenante exista y pertenezca al remesero (evita remesa cruzada)
         const ordenanteResult = await db.query(
-            'SELECT id, nombre FROM ordenantes WHERE id = ? AND activo = 1',
+            'SELECT id, nombre, remesero_id FROM ordenantes WHERE id = ? AND activo = 1',
             [ordenanteIdNum]
         );
 
         if (ordenanteResult.rows.length === 0) {
             return res.status(404).json({ error: 'Ordenante no encontrado' });
+        }
+
+        if (Number(ordenanteResult.rows[0].remesero_id) !== Number(remeseroIdNum)) {
+            return res.status(400).json({ error: 'El ordenante no pertenece al cliente indicado' });
+        }
+
+        // Verificar que el remesero exista y esté activo
+        const remeseroResult = await db.query(
+            'SELECT id FROM remeseros WHERE id = ? AND activo = 1',
+            [remeseroIdNum]
+        );
+
+        if (remeseroResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente no encontrado' });
         }
 
         // Calcular importe CUP
@@ -247,44 +257,40 @@ router.post('/', authenticateToken, async (req, res) => {
 
 // ============================================
 // PUT /api/remesas/:id/confirmar
-// Confirmar una remesa (conciliación)
+// Confirmar una remesa (conciliación) - solo admin
 // ============================================
-router.put('/:id/confirmar', authenticateToken, async (req, res) => {
+router.put('/:id/confirmar', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Obtener remesa actual
-        const anteriorResult = await db.query('SELECT * FROM remesas WHERE id = ?', [id]);
-        if (anteriorResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Remesa no encontrada' });
-        }
-
-        const remesa = anteriorResult.rows[0];
-
-        // Verificar que esté pendiente
-        if (remesa.estado === 'confirmado') {
-            return res.status(400).json({ error: 'La remesa ya está confirmada' });
-        }
-
-        // Confirmar
-        await db.query(
-            `UPDATE remesas 
-             SET estado = 'confirmado', 
-                 confirmado_por = ?, 
+        // Confirmar de forma atómica: solo si está pendiente (evita race de doble clic)
+        const updated = await db.query(
+            `UPDATE remesas
+             SET estado = 'confirmado',
+                 confirmado_por = ?,
                  fecha_confirmacion = datetime('now')
-             WHERE id = ?`,
+             WHERE id = ? AND estado = 'pendiente' RETURNING *`,
             [req.user.id, id]
         );
 
-        // Obtener la remesa actualizada
-        const remesaConfirmada = (await db.query('SELECT * FROM remesas WHERE id = ?', [id])).rows[0];
+        if (updated.rows.length > 0) {
+            const remesaConfirmada = updated.rows[0];
+            logAudit(db, req.user.id, 'confirmar', 'remesas', id, null, remesaConfirmada, req.ip);
+            return res.json({
+                message: 'Remesa confirmada exitosamente',
+                remesa: remesaConfirmada
+            });
+        }
 
-        // Registrar auditoría
-        logAudit(db, req.user.id, 'confirmar', 'remesas', id, remesa, remesaConfirmada, req.ip);
+        // No se actualizó: verificar si no existe o ya estaba confirmada (idempotente)
+        const existing = await db.query('SELECT * FROM remesas WHERE id = ?', [id]);
+        if (existing.rows.length === 0) {
+            return res.status(404).json({ error: 'Remesa no encontrada' });
+        }
 
-        res.json({
-            message: 'Remesa confirmada exitosamente',
-            remesa: remesaConfirmada
+        return res.json({
+            message: 'La remesa ya estaba confirmada',
+            remesa: existing.rows[0]
         });
 
     } catch (error) {
@@ -295,44 +301,39 @@ router.put('/:id/confirmar', authenticateToken, async (req, res) => {
 
 // ============================================
 // PUT /api/remesas/:id/desconfirmar
-// Desconfirmar una remesa (volver a pendiente)
+// Desconfirmar una remesa (volver a pendiente) - solo admin
 // ============================================
-router.put('/:id/desconfirmar', authenticateToken, async (req, res) => {
+router.put('/:id/desconfirmar', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Obtener remesa actual
-        const anteriorResult = await db.query('SELECT * FROM remesas WHERE id = ?', [id]);
-        if (anteriorResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Remesa no encontrada' });
-        }
-
-        const remesa = anteriorResult.rows[0];
-
-        // Verificar que esté confirmada
-        if (remesa.estado === 'pendiente') {
-            return res.status(400).json({ error: 'La remesa ya está pendiente' });
-        }
-
-        // Desconfirmar
-        await db.query(
-            `UPDATE remesas 
-             SET estado = 'pendiente', 
-                 confirmado_por = NULL, 
+        // Desconfirmar de forma atómica: solo si estaba confirmada
+        const updated = await db.query(
+            `UPDATE remesas
+             SET estado = 'pendiente',
+                 confirmado_por = NULL,
                  fecha_confirmacion = NULL
-             WHERE id = ?`,
+             WHERE id = ? AND estado = 'confirmado' RETURNING *`,
             [id]
         );
 
-        // Obtener la remesa actualizada
-        const remesaActualizada = (await db.query('SELECT * FROM remesas WHERE id = ?', [id])).rows[0];
+        if (updated.rows.length > 0) {
+            const remesaActualizada = updated.rows[0];
+            logAudit(db, req.user.id, 'desconfirmar', 'remesas', id, null, remesaActualizada, req.ip);
+            return res.json({
+                message: 'Remesa marcada como pendiente',
+                remesa: remesaActualizada
+            });
+        }
 
-        // Registrar auditoría
-        logAudit(db, req.user.id, 'desconfirmar', 'remesas', id, remesa, remesaActualizada, req.ip);
+        const existing = await db.query('SELECT * FROM remesas WHERE id = ?', [id]);
+        if (existing.rows.length === 0) {
+            return res.status(404).json({ error: 'Remesa no encontrada' });
+        }
 
-        res.json({
-            message: 'Remesa marcada como pendiente',
-            remesa: remesaActualizada
+        return res.json({
+            message: 'La remesa ya estaba pendiente',
+            remesa: existing.rows[0]
         });
 
     } catch (error) {
@@ -343,9 +344,9 @@ router.put('/:id/desconfirmar', authenticateToken, async (req, res) => {
 
 // ============================================
 // PUT /api/remesas/:id
-// Actualizar remesa
+// Actualizar remesa - solo admin (importe/tasa/moneda son financieros)
 // ============================================
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const { fecha_deposito, moneda, importe, tasa_cambio, referencia, cantidad_deposito } = req.body;
@@ -379,12 +380,15 @@ router.put('/:id', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'La fecha de depósito no es válida (YYYY-MM-DD)' });
         }
 
-        // Validar moneda si se proporciona
+        // Validar moneda si se proporciona - solo EUR (históricos USD/CUP solo lectura)
         let monedaCode;
         if (moneda !== undefined && moneda !== null && moneda !== '') {
             monedaCode = parseMoneda(moneda);
             if (monedaCode === null) {
                 return res.status(400).json({ error: 'La moneda no es válida (código de 3 letras)' });
+            }
+            if (monedaCode !== 'EUR') {
+                return res.status(400).json({ error: 'Solo se acepta EUR (conversión a CUP con tasa)' });
             }
         }
 
@@ -398,12 +402,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
         }
 
         // Recalcular importe CUP si cambió importe o tasa (usa valores actuales como base)
+        // Moneda única EUR: sin forzado CUP->1, se respeta la tasa existente o la enviada
         const anterior = anteriorResult.rows[0];
-        // Si la moneda final es CUP, la tasa siempre es 1
-        const monedaFinal = monedaCode || anterior.moneda;
-        if (monedaFinal === 'CUP') {
-            tasaNum = 1.0;
-        }
         let importeCUP = anterior.importe_cup;
         if (importeNum !== undefined || tasaNum !== undefined) {
             const importeFinal = importeNum !== undefined ? importeNum : Number(anterior.importe);
@@ -476,9 +476,13 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
 // ============================================
 router.get('/pendientes/count', authenticateToken, async (req, res) => {
     try {
+        // Solo pendientes de ordenantes/clientes activos
         const result = await db.query(
-            `SELECT COUNT(*) as total, COALESCE(SUM(importe_cup), 0) as monto_total
-             FROM remesas WHERE estado = 'pendiente'`
+            `SELECT COUNT(*) as total, COALESCE(SUM(rem.importe_cup), 0) as monto_total
+             FROM remesas rem
+             JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
+             JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
+             WHERE rem.estado = 'pendiente'`
         );
 
         res.json({ pendientes: result.rows[0] });

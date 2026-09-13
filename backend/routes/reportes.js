@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../config/database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 // ============================================
 // GET /api/reportes/resumen
@@ -132,6 +132,8 @@ router.get('/por-remesero', authenticateToken, async (req, res) => {
         const { fecha_inicio, fecha_fin } = req.query;
 
         // Montos en moneda extranjera (importe sin convertir), una fila por moneda
+        // Solo activos: remesero activo + ordenante activo. Fechas en el ON para no
+        // convertir el LEFT JOIN en INNER (clientes sin remesas en rango siguen saliendo con 0).
         let query = `
             SELECT
                 r.id,
@@ -144,24 +146,28 @@ router.get('/por-remesero', authenticateToken, async (req, res) => {
                 COUNT(CASE WHEN rem.estado = 'pendiente' THEN 1 END) as pendientes,
                 COUNT(CASE WHEN rem.estado = 'confirmado' THEN 1 END) as confirmadas
             FROM remeseros r
-            LEFT JOIN remesas rem ON r.id = rem.remesero_id
+            LEFT JOIN ordenantes o ON o.remesero_id = r.id AND o.activo = 1
+            LEFT JOIN remesas rem ON rem.ordenante_id = o.id AND rem.remesero_id = r.id
         `;
-        // Solo remeseros activos (los eliminados no aparecen en reportes)
-        const conditions = ['r.activo = 1'];
+        const onExtras = [];
         const params = [];
 
         if (fecha_inicio) {
-            conditions.push(`rem.fecha_deposito >= ?`);
+            onExtras.push(`rem.fecha_deposito >= ?`);
             params.push(fecha_inicio);
         }
 
         if (fecha_fin) {
-            conditions.push(`rem.fecha_deposito <= ?`);
+            onExtras.push(`rem.fecha_deposito <= ?`);
             params.push(fecha_fin);
         }
 
-        if (conditions.length > 0) {
-            query += ` WHERE ${conditions.join(' AND ')}`;
+        if (onExtras.length > 0) {
+            // Turso/libsql no permite ? en el ON con LEFT JOIN de forma portable en este wrapper,
+            // se aplica como filtro null-safe en WHERE para mantener los ceros.
+            query += ` WHERE r.activo = 1 AND (rem.id IS NULL OR (${onExtras.join(' AND ')}))`;
+        } else {
+            query += ` WHERE r.activo = 1`;
         }
 
         query += ` GROUP BY r.id, r.nombre, rem.moneda ORDER BY monto_total DESC`;
@@ -182,14 +188,15 @@ router.get('/por-remesero', authenticateToken, async (req, res) => {
 // ============================================
 router.get('/pendientes', authenticateToken, async (req, res) => {
     try {
+        // Solo pendientes de ordenantes/clientes activos
         const result = await db.query(`
             SELECT 
                 rem.*,
                 o.nombre as ordenante_nombre,
                 r.nombre as remesero_nombre
             FROM remesas rem
-            JOIN ordenantes o ON rem.ordenante_id = o.id
-            JOIN remeseros r ON rem.remesero_id = r.id
+            JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
+            JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
             WHERE rem.estado = 'pendiente'
             ORDER BY rem.fecha_deposito ASC
         `);
@@ -198,19 +205,23 @@ router.get('/pendientes', authenticateToken, async (req, res) => {
         const totales = await db.query(`
             SELECT
                 COUNT(*) as cantidad,
-                COALESCE(SUM(importe_cup), 0) as monto_total
-            FROM remesas
-            WHERE estado = 'pendiente'
+                COALESCE(SUM(rem.importe_cup), 0) as monto_total
+            FROM remesas rem
+            JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
+            JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
+            WHERE rem.estado = 'pendiente'
         `);
 
         const totalesMoneda = await db.query(`
             SELECT
-                moneda,
+                rem.moneda as moneda,
                 COUNT(*) as cantidad,
-                COALESCE(SUM(importe), 0) as monto_total
-            FROM remesas
-            WHERE estado = 'pendiente'
-            GROUP BY moneda
+                COALESCE(SUM(rem.importe), 0) as monto_total
+            FROM remesas rem
+            JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
+            JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
+            WHERE rem.estado = 'pendiente'
+            GROUP BY rem.moneda
         `);
 
         res.json({
@@ -274,9 +285,9 @@ router.get('/historial-remesero/:id', authenticateToken, async (req, res) => {
         const { id } = req.params;
         const { fecha_inicio, fecha_fin } = req.query;
 
-        // Info del remesero
+        // Info del remesero - solo activos (eliminados devuelven 404)
         const remeseroResult = await db.query(
-            'SELECT * FROM remeseros WHERE id = ?',
+            'SELECT * FROM remeseros WHERE id = ? AND activo = 1',
             [id]
         );
 
@@ -289,7 +300,8 @@ router.get('/historial-remesero/:id', authenticateToken, async (req, res) => {
                 rem.*,
                 o.nombre as ordenante_nombre
             FROM remesas rem
-            JOIN ordenantes o ON rem.ordenante_id = o.id
+            JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
+            JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
             WHERE rem.remesero_id = ?
         `;
         const params = [id];
@@ -308,15 +320,16 @@ router.get('/historial-remesero/:id', authenticateToken, async (req, res) => {
 
         const remesasResult = await db.query(query, params);
 
-        // Estadísticas
+        // Estadísticas - solo remesas de ordenantes activos
         const statsResult = await db.query(`
             SELECT 
                 COUNT(*) as total,
-                COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe_cup ELSE 0 END), 0) as pendiente,
-                COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN importe_cup ELSE 0 END), 0) as confirmado,
-                COALESCE(SUM(importe_cup), 0) as total_monto
-            FROM remesas
-            WHERE remesero_id = ?
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe_cup ELSE 0 END), 0) as pendiente,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe_cup ELSE 0 END), 0) as confirmado,
+                COALESCE(SUM(rem.importe_cup), 0) as total_monto
+            FROM remesas rem
+            JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
+            WHERE rem.remesero_id = ?
         `, [id]);
 
         res.json({
@@ -339,12 +352,12 @@ router.get('/historial-ordenante/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Info del ordenante
+        // Info del ordenante - solo activos (eliminados devuelven 404)
         const ordenanteResult = await db.query(`
             SELECT o.*, r.nombre as remesero_nombre
             FROM ordenantes o
-            JOIN remeseros r ON o.remesero_id = r.id
-            WHERE o.id = ?
+            JOIN remeseros r ON o.remesero_id = r.id AND r.activo = 1
+            WHERE o.id = ? AND o.activo = 1
         `, [id]);
 
         if (ordenanteResult.rows.length === 0) {
@@ -387,7 +400,7 @@ module.exports = router;
 // Filtros: pagina, limite, accion, tabla, fecha_desde, fecha_hasta
 // Últimos 7 días por defecto, acciones: crear, editar, eliminar, confirmar, desconfirmar, restaurar, cambiar_contraseña
 // ============================================
-router.get('/auditoria', authenticateToken, async (req, res) => {
+router.get('/auditoria', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { 
             pagina = 1, 
@@ -494,7 +507,7 @@ router.get('/auditoria', authenticateToken, async (req, res) => {
 });
 
 // GET /api/reportes/auditoria/:id - Detalle de una entrada de auditoría
-router.get('/auditoria/:id', authenticateToken, async (req, res) => {
+router.get('/auditoria/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -529,11 +542,8 @@ router.get('/auditoria/:id', authenticateToken, async (req, res) => {
 });
 
 // DELETE /api/reportes/auditoria/:id - Eliminar registro (solo admin)
-router.delete('/auditoria/:id', authenticateToken, async (req, res) => {
+router.delete('/auditoria/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        if (req.user.rol !== 'admin') {
-            return res.status(403).json({ error: 'Solo administradores pueden eliminar registros' });
-        }
         const result = await db.query('DELETE FROM auditoria WHERE id = ?', [req.params.id]);
         // Turso/libsql no devuelve affectedRows consistente; verificamos existencia previa
         if (result.rowsAffected === 0) {

@@ -120,8 +120,8 @@ router.get('/:id/detalles', authenticateToken, async (req, res) => {
         const ordenanteResult = await db.query(`
             SELECT o.*, r.nombre as remesero_nombre
             FROM ordenantes o
-            JOIN remeseros r ON o.remesero_id = r.id
-            WHERE o.id = ?
+            JOIN remeseros r ON o.remesero_id = r.id AND r.activo = 1
+            WHERE o.id = ? AND o.activo = 1
         `, [id]);
 
         if (ordenanteResult.rows.length === 0) {
@@ -177,8 +177,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
         const ordenanteResult = await db.query(`
             SELECT o.*, r.nombre as remesero_nombre
             FROM ordenantes o
-            JOIN remeseros r ON o.remesero_id = r.id
-            WHERE o.id = ?
+            JOIN remeseros r ON o.remesero_id = r.id AND r.activo = 1
+            WHERE o.id = ? AND o.activo = 1
         `, [id]);
 
         if (ordenanteResult.rows.length === 0) {
@@ -247,17 +247,13 @@ router.post('/', authenticateToken, async (req, res) => {
         }
 
         // Validar tasa si se proporciona (default 1.0)
+        // Moneda única EUR: la tasa la escribe el usuario (EUR->CUP), no hay rama CUP
         let tasa = 1.0;
         if (tasa_cambio !== undefined && tasa_cambio !== null && tasa_cambio !== '') {
             tasa = parseTasa(tasa_cambio);
             if (tasa === null) {
                 return res.status(400).json({ error: 'La tasa de cambio debe ser un número mayor a 0' });
             }
-        }
-
-        // Si la moneda es CUP, la tasa siempre es 1 (se ignora la enviada)
-        if (monedaCode === 'CUP') {
-            tasa = 1.0;
         }
 
         // Validar cantidad_deposito si se proporciona
