@@ -78,7 +78,7 @@ const updatePendientesTable = (remesas) => {
             <td>${escapeHtml(remesa.remesero_nombre)}</td>
             <td>${escapeHtml(remesa.ordenante_nombre)}</td>
             <td>${formatDate(remesa.fecha_deposito)}</td>
-            <td>${escapeHtml(remesa.moneda)} ${formatCurrency(remesa.importe, remesa.moneda)}</td>
+            <td><strong>${formatCurrency(remesa.importe, 'EUR')}</strong></td>
             <td>
                 <span class="status-indicator pending">
                     <span class="status-dot"></span>
@@ -126,21 +126,66 @@ const confirmarRemesa = async (id) => {
 
 // ============================================
 // VISITADOS RECIENTEMENTE (accesos directos al detalle)
+// Valida contra el servidor para no mostrar eliminados (borrado externo u otra pestaña).
 // ============================================
 
-const renderRecientes = () => {
+const renderRecientes = async () => {
     const card = document.getElementById('recientesCard');
     const list = document.getElementById('recientesList');
     if (!card || !list) return;
     
-    const recientes = getRecientes();
+    let recientes = getRecientes();
     if (!recientes || recientes.length === 0) {
+        card.style.display = 'none';
+        return;
+    }
+
+    // Purga por antigüedad (30 días) y validación contra API (404 / inactivo = eliminado)
+    const TREINTA_DIAS = 30 * 24 * 60 * 60 * 1000;
+    const ahora = Date.now();
+    recientes = recientes.filter(r => !r.ts || (ahora - r.ts) < TREINTA_DIAS);
+
+    const checks = await Promise.allSettled(recientes.map(async (r) => {
+        try {
+            if (r.tipo === 'cliente') {
+                const data = await clientesService.getById(r.id);
+                if (!data || !data.cliente || Number(data.cliente.activo) === 0) return null;
+                return r;
+            } else if (r.tipo === 'ordenante') {
+                const data = await ordenantesService.getById(r.id);
+                if (!data || !data.ordenante || Number(data.ordenante.activo) === 0) return null;
+                // Si el remesero del ordenante fue eliminado, también se va
+                if (data.ordenante.remesero_id && r.remeseroId && Number(data.ordenante.remesero_id) !== Number(r.remeseroId)) {
+                    // remesero cambió, mantener pero actualizar
+                    r.remeseroId = data.ordenante.remesero_id;
+                }
+                return r;
+            }
+            return r;
+        } catch (e) {
+            const msg = (e && e.message) ? e.message : '';
+            const status = e && e.status;
+            // 404 o mensaje de no encontrado -> eliminado
+            if (status === 404 || /no encontrado/i.test(msg)) return null;
+            // Error de red / token -> conservar para no vaciar por fallo temporal
+            return r;
+        }
+    }));
+
+    const validos = checks.map((c, i) => c.status === 'fulfilled' ? c.value : recientes[i]).filter(Boolean);
+
+    // Si hubo purgas, persistir
+    if (validos.length !== recientes.length || validos.length !== getRecientes().length) {
+        try { localStorage.setItem('recientes', JSON.stringify(validos.slice(0, 6))); } catch (e) {}
+    }
+
+    if (!validos || validos.length === 0) {
         card.style.display = 'none';
         return;
     }
     
     card.style.display = '';
-    list.innerHTML = recientes.map(r => {
+    list.innerHTML = validos.map(r => {
         const esCliente = r.tipo === 'cliente';
         const url = esCliente
             ? `/clientes?detalle=${r.id}`
@@ -215,10 +260,10 @@ const changePassword = async () => {
 // INICIALIZAR
 // ============================================
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     if (checkAuth()) {
         loadUser();
-        renderRecientes();
+        await renderRecientes();
         loadDashboardData();
     }
 });

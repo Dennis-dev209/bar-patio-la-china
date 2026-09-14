@@ -9,7 +9,7 @@
 
 .clientes-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 350px), 1fr));
     gap: var(--spacing-lg);
 }
 
@@ -27,6 +27,7 @@
     gap: var(--spacing-lg);
     transition: all var(--transition-base);
     cursor: pointer;
+    container-type: inline-size;
 }
 
 .cliente-card:hover {
@@ -179,6 +180,7 @@
 @media (max-width: 768px) {
     .clientes-grid {
         grid-template-columns: 1fr;
+        gap: var(--spacing-md);
     }
     
     .cliente-card {

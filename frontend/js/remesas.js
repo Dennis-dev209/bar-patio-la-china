@@ -218,10 +218,10 @@ const renderDepositosList = (remesas) => {
             </div>
             <div class="deposito-body">
                 <div class="deposito-monto">
-                    <span class="monto-moneda">${escapeHtml(remesa.moneda)}</span>
-                    <span class="monto-valor">${formatCurrency(remesa.importe, remesa.moneda)}</span>
+                    <span class="monto-moneda">EUR</span>
+                    <span class="monto-valor">${formatCurrency(remesa.importe, 'EUR')}</span>
                     <i class="fas fa-arrow-right"></i>
-                    <span class="monto-cup">${formatCurrency(remesa.importe_cup)}</span>
+                    <span class="monto-cup">≈ ${formatCurrency(remesa.importe_cup, 'CUP')}</span>
                 </div>
                 ${remesa.referencia ? `
                     <div class="deposito-referencia">
@@ -561,10 +561,10 @@ const renderBusqueda = (resultados) => {
                     </div>
                     <div class="deposito-body">
                         <div class="deposito-monto">
-                            <span class="monto-moneda">${escapeHtml(remesa.moneda)}</span>
-                            <span class="monto-valor">${formatCurrency(remesa.importe, remesa.moneda)}</span>
+                            <span class="monto-moneda">EUR</span>
+                            <span class="monto-valor">${formatCurrency(remesa.importe, 'EUR')}</span>
                             <i class="fas fa-arrow-right"></i>
-                            <span class="monto-cup">${formatCurrency(remesa.importe_cup)}</span>
+                            <span class="monto-cup">≈ ${formatCurrency(remesa.importe_cup, 'CUP')}</span>
                         </div>
                         ${remesa.referencia ? `
                             <div class="deposito-referencia">

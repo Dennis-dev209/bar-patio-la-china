@@ -13,20 +13,22 @@ router.get('/resumen', authenticateToken, async (req, res) => {
             SELECT 
                 COUNT(DISTINCT r.id) as total_remeseros,
                 COUNT(DISTINCT o.id) as total_ordenantes,
-                COUNT(rem.id) as total_remesas,
-                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe_cup ELSE 0 END), 0) as monto_pendiente,
-                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe_cup ELSE 0 END), 0) as monto_confirmado,
-                COALESCE(SUM(rem.importe_cup), 0) as monto_total,
-                COUNT(CASE WHEN rem.estado = 'pendiente' THEN 1 END) as remesas_pendientes,
-                COUNT(CASE WHEN rem.estado = 'confirmado' THEN 1 END) as remesas_confirmadas
+                COUNT(CASE WHEN rem.moneda = 'EUR' THEN rem.id END) as total_remesas,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' AND rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as monto_pendiente,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' AND rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as monto_confirmado,
+                COALESCE(SUM(CASE WHEN rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as monto_total,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' AND rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as monto_pendiente_cup,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' AND rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as monto_confirmado_cup,
+                COALESCE(SUM(CASE WHEN rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as monto_total_cup,
+                COUNT(CASE WHEN rem.estado = 'pendiente' AND rem.moneda = 'EUR' THEN 1 END) as remesas_pendientes,
+                COUNT(CASE WHEN rem.estado = 'confirmado' AND rem.moneda = 'EUR' THEN 1 END) as remesas_confirmadas
             FROM remeseros r
             LEFT JOIN ordenantes o ON r.id = o.remesero_id AND o.activo = 1
             LEFT JOIN remesas rem ON o.id = rem.ordenante_id
             WHERE r.activo = 1
         `);
 
-        // Desglose por moneda extranjera (importe sin convertir).
-        // Se agrupa directo desde remesas para no duplicar filas.
+        // Desglose EUR únicamente (otras monedas históricas se ignoran).
         const porMoneda = await db.query(`
             SELECT
                 rem.moneda as moneda,
@@ -34,11 +36,15 @@ router.get('/resumen', authenticateToken, async (req, res) => {
                 COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe ELSE 0 END), 0) as monto_pendiente,
                 COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe ELSE 0 END), 0) as monto_confirmado,
                 COALESCE(SUM(rem.importe), 0) as monto_total,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe_cup ELSE 0 END), 0) as monto_pendiente_cup,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe_cup ELSE 0 END), 0) as monto_confirmado_cup,
+                COALESCE(SUM(rem.importe_cup), 0) as monto_total_cup,
                 COUNT(CASE WHEN rem.estado = 'pendiente' THEN 1 END) as pendientes,
                 COUNT(CASE WHEN rem.estado = 'confirmado' THEN 1 END) as confirmadas
             FROM remesas rem
             JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
             JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
+            WHERE rem.moneda = 'EUR'
             GROUP BY rem.moneda
             ORDER BY monto_total DESC
         `);
@@ -83,7 +89,7 @@ router.get('/por-periodo', authenticateToken, async (req, res) => {
                 dateFormat = '%Y-%m';
         }
 
-        // Montos en moneda extranjera (importe sin convertir), una fila por moneda
+        // Montos EUR únicamente (otras monedas históricas se ignoran), CUP solo referencia detalle
         let query = `
             SELECT
                 ${groupBy} as periodo,
@@ -92,12 +98,15 @@ router.get('/por-periodo', authenticateToken, async (req, res) => {
                 COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe ELSE 0 END), 0) as monto_pendiente,
                 COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN importe ELSE 0 END), 0) as monto_confirmado,
                 COALESCE(SUM(importe), 0) as monto_total,
+                COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe_cup ELSE 0 END), 0) as monto_pendiente_cup,
+                COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN importe_cup ELSE 0 END), 0) as monto_confirmado_cup,
+                COALESCE(SUM(importe_cup), 0) as monto_total_cup,
                 COUNT(CASE WHEN estado = 'pendiente' THEN 1 END) as pendientes,
                 COUNT(CASE WHEN estado = 'confirmado' THEN 1 END) as confirmadas
             FROM remesas rem
             JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
             JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
-            WHERE 1=1
+            WHERE rem.moneda = 'EUR'
         `;
         const params = [];
 
@@ -131,7 +140,7 @@ router.get('/por-remesero', authenticateToken, async (req, res) => {
     try {
         const { fecha_inicio, fecha_fin } = req.query;
 
-        // Montos en moneda extranjera (importe sin convertir), una fila por moneda
+        // Montos EUR únicamente (otras monedas históricas se ignoran), CUP solo referencia detalle
         // Solo activos: remesero activo + ordenante activo. Fechas en el ON para no
         // convertir el LEFT JOIN en INNER (clientes sin remesas en rango siguen saliendo con 0).
         let query = `
@@ -139,15 +148,18 @@ router.get('/por-remesero', authenticateToken, async (req, res) => {
                 r.id,
                 r.nombre,
                 rem.moneda as moneda,
-                COUNT(rem.id) as total_remesas,
-                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe ELSE 0 END), 0) as monto_pendiente,
-                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe ELSE 0 END), 0) as monto_confirmado,
-                COALESCE(SUM(rem.importe), 0) as monto_total,
-                COUNT(CASE WHEN rem.estado = 'pendiente' THEN 1 END) as pendientes,
-                COUNT(CASE WHEN rem.estado = 'confirmado' THEN 1 END) as confirmadas
+                COUNT(CASE WHEN rem.moneda = 'EUR' THEN rem.id END) as total_remesas,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' AND rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as monto_pendiente,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' AND rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as monto_confirmado,
+                COALESCE(SUM(CASE WHEN rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as monto_total,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' AND rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as monto_pendiente_cup,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' AND rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as monto_confirmado_cup,
+                COALESCE(SUM(CASE WHEN rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as monto_total_cup,
+                COUNT(CASE WHEN rem.estado = 'pendiente' AND rem.moneda = 'EUR' THEN 1 END) as pendientes,
+                COUNT(CASE WHEN rem.estado = 'confirmado' AND rem.moneda = 'EUR' THEN 1 END) as confirmadas
             FROM remeseros r
             LEFT JOIN ordenantes o ON o.remesero_id = r.id AND o.activo = 1
-            LEFT JOIN remesas rem ON rem.ordenante_id = o.id AND rem.remesero_id = r.id
+            LEFT JOIN remesas rem ON rem.ordenante_id = o.id AND rem.remesero_id = r.id AND rem.moneda = 'EUR'
         `;
         const onExtras = [];
         const params = [];
@@ -201,26 +213,28 @@ router.get('/pendientes', authenticateToken, async (req, res) => {
             ORDER BY rem.fecha_deposito ASC
         `);
 
-        // Calcular totales (desglose por moneda extranjera para el badge)
+        // Calcular totales EUR (otras monedas se ignoran) + CUP referencia
         const totales = await db.query(`
             SELECT
                 COUNT(*) as cantidad,
-                COALESCE(SUM(rem.importe_cup), 0) as monto_total
+                COALESCE(SUM(rem.importe), 0) as monto_total,
+                COALESCE(SUM(rem.importe_cup), 0) as monto_total_cup
             FROM remesas rem
             JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
             JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
-            WHERE rem.estado = 'pendiente'
+            WHERE rem.estado = 'pendiente' AND rem.moneda = 'EUR'
         `);
 
         const totalesMoneda = await db.query(`
             SELECT
                 rem.moneda as moneda,
                 COUNT(*) as cantidad,
-                COALESCE(SUM(rem.importe), 0) as monto_total
+                COALESCE(SUM(rem.importe), 0) as monto_total,
+                COALESCE(SUM(rem.importe_cup), 0) as monto_total_cup
             FROM remesas rem
             JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
             JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
-            WHERE rem.estado = 'pendiente'
+            WHERE rem.estado = 'pendiente' AND rem.moneda = 'EUR'
             GROUP BY rem.moneda
         `);
 
@@ -320,13 +334,16 @@ router.get('/historial-remesero/:id', authenticateToken, async (req, res) => {
 
         const remesasResult = await db.query(query, params);
 
-        // Estadísticas - solo remesas de ordenantes activos
+        // Estadísticas EUR - solo remesas de ordenantes activos
         const statsResult = await db.query(`
             SELECT 
-                COUNT(*) as total,
-                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe_cup ELSE 0 END), 0) as pendiente,
-                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe_cup ELSE 0 END), 0) as confirmado,
-                COALESCE(SUM(rem.importe_cup), 0) as total_monto
+                COUNT(CASE WHEN rem.moneda = 'EUR' THEN 1 END) as total,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' AND rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as pendiente,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' AND rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as confirmado,
+                COALESCE(SUM(CASE WHEN rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as total_monto,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' AND rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as pendiente_cup,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' AND rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as confirmado_cup,
+                COALESCE(SUM(CASE WHEN rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as total_monto_cup
             FROM remesas rem
             JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
             WHERE rem.remesero_id = ?
@@ -372,10 +389,13 @@ router.get('/historial-ordenante/:id', authenticateToken, async (req, res) => {
 
         const statsResult = await db.query(`
             SELECT 
-                COUNT(*) as total,
-                COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe_cup ELSE 0 END), 0) as pendiente,
-                COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN importe_cup ELSE 0 END), 0) as confirmado,
-                COALESCE(SUM(importe_cup), 0) as total_monto
+                COUNT(CASE WHEN moneda = 'EUR' THEN 1 END) as total,
+                COALESCE(SUM(CASE WHEN estado = 'pendiente' AND moneda = 'EUR' THEN importe ELSE 0 END), 0) as pendiente,
+                COALESCE(SUM(CASE WHEN estado = 'confirmado' AND moneda = 'EUR' THEN importe ELSE 0 END), 0) as confirmado,
+                COALESCE(SUM(CASE WHEN moneda = 'EUR' THEN importe ELSE 0 END), 0) as total_monto,
+                COALESCE(SUM(CASE WHEN estado = 'pendiente' AND moneda = 'EUR' THEN importe_cup ELSE 0 END), 0) as pendiente_cup,
+                COALESCE(SUM(CASE WHEN estado = 'confirmado' AND moneda = 'EUR' THEN importe_cup ELSE 0 END), 0) as confirmado_cup,
+                COALESCE(SUM(CASE WHEN moneda = 'EUR' THEN importe_cup ELSE 0 END), 0) as total_monto_cup
             FROM remesas
             WHERE ordenante_id = ?
         `, [id]);

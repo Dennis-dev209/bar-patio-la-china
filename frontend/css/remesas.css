@@ -19,7 +19,8 @@
 .vista-header {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
     margin-bottom: var(--spacing-xl);
 }
 
@@ -34,7 +35,7 @@
 
 .clientes-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 350px), 1fr));
     gap: var(--spacing-md);
 }
 
@@ -44,7 +45,7 @@
 
 .ordenantes-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
     gap: var(--spacing-md);
 }
 
@@ -58,6 +59,7 @@
     gap: var(--spacing-lg);
     cursor: pointer;
     transition: all var(--transition-base);
+    container-type: inline-size;
 }
 
 .ordenante-card:hover {
@@ -194,6 +196,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
     padding-top: var(--spacing-md);
     border-top: var(--border-width) solid var(--border-color);
 }
@@ -219,12 +223,19 @@
    RESPONSIVE
    ============================================ */
 
+@container (max-width: 380px) {
+    .ordenante-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
 @media (max-width: 768px) {
     .clientes-list,
     .ordenantes-list {
         grid-template-columns: 1fr;
+        gap: var(--spacing-sm);
     }
-    
     .ordenante-card {
         flex-wrap: wrap;
     }

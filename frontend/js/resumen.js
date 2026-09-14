@@ -162,13 +162,13 @@ const renderPeriodoTable = (data) => {
     tbody.innerHTML = data.map(row => `
         <tr>
             <td><strong>${formatPeriodo(row.periodo)}</strong></td>
-            <td>${escapeHtml(row.moneda) || '—'}</td>
+            <td>EUR</td>
             <td>${row.total_remesas}</td>
             <td>${row.confirmadas}</td>
             <td>${row.pendientes}</td>
-            <td>${formatCurrency(row.monto_total, row.moneda)}</td>
-            <td class="text-success">${formatCurrency(row.monto_confirmado, row.moneda)}</td>
-            <td class="text-warning">${formatCurrency(row.monto_pendiente, row.moneda)}</td>
+            <td><strong>${formatCurrency(row.monto_total, 'EUR')}</strong></td>
+            <td class="text-success">${formatCurrency(row.monto_confirmado, 'EUR')}</td>
+            <td class="text-warning">${formatCurrency(row.monto_pendiente, 'EUR')}</td>
         </tr>
     `).join('');
 };
@@ -194,13 +194,13 @@ const renderRemeseroTable = (data) => {
     tbody.innerHTML = data.map(row => `
         <tr>
             <td><strong>${escapeHtml(row.nombre)}</strong></td>
-            <td>${escapeHtml(row.moneda) || '—'}</td>
+            <td>EUR</td>
             <td>${row.total_remesas}</td>
             <td>${row.confirmadas}</td>
             <td>${row.pendientes}</td>
-            <td>${formatCurrency(row.monto_total, row.moneda)}</td>
-            <td class="text-success">${formatCurrency(row.monto_confirmado, row.moneda)}</td>
-            <td class="text-warning">${formatCurrency(row.monto_pendiente, row.moneda)}</td>
+            <td><strong>${formatCurrency(row.monto_total, 'EUR')}</strong></td>
+            <td class="text-success">${formatCurrency(row.monto_confirmado, 'EUR')}</td>
+            <td class="text-warning">${formatCurrency(row.monto_pendiente, 'EUR')}</td>
         </tr>
     `).join('');
 };
@@ -217,22 +217,22 @@ const exportToExcel = () => {
         const fFin = document.getElementById('reportFechaFin')?.value || '';
         const filtroInfo = `Filtros: tipo=${tipo}${fIni ? ` desde=${fIni}` : ''}${fFin ? ` hasta=${fFin}` : ''}`;
         
-        // Hoja de resumen (montos en moneda extranjera, una fila por moneda)
+        // Hoja de resumen EUR (sin CUP)
         const resumenData = [
             ['RESUMEN DE REMESAS'],
             ['Bar Patio La China'],
             [filtroInfo],
             [''],
-            ['Concepto', 'Moneda', 'Monto'],
+            ['Concepto', 'Moneda', 'Monto EUR'],
             ...(reportData.porMoneda.length > 0
-                ? reportData.porMoneda.flatMap(m => [
-                    [`Total Recibido`, m.moneda, m.monto_total],
-                    [`Confirmado`, m.moneda, m.monto_confirmado],
-                    [`Pendiente`, m.moneda, m.monto_pendiente]
+                ? reportData.porMoneda.filter(m => m.moneda === 'EUR').flatMap(m => [
+                    [`Total Recibido`, 'EUR', m.monto_total],
+                    [`Confirmado`, 'EUR', m.monto_confirmado],
+                    [`Pendiente`, 'EUR', m.monto_pendiente]
                 ])
-                : [['Total Recibido', 'CUP', reportData.resumen.monto_total],
-                   ['Confirmado', 'CUP', reportData.resumen.monto_confirmado],
-                   ['Pendiente', 'CUP', reportData.resumen.monto_pendiente]]),
+                : [['Total Recibido', 'EUR', reportData.resumen.monto_total],
+                   ['Confirmado', 'EUR', reportData.resumen.monto_confirmado],
+                   ['Pendiente', 'EUR', reportData.resumen.monto_pendiente]]),
             ['Total Remesas', '', reportData.resumen.total_remesas],
             ['Remesas Confirmadas', '', reportData.resumen.remesas_confirmadas],
             ['Remesas Pendientes', '', reportData.resumen.remesas_pendientes]
@@ -240,29 +240,29 @@ const exportToExcel = () => {
         const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
         XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
         
-        // Hoja por período (siempre, aunque esté vacía deja trazabilidad)
+        // Hoja por período EUR
         {
-            const periodoHeaders = ['Período', 'Moneda', 'Total Remesas', 'Confirmadas', 'Pendientes', 'Monto Total', 'Monto Confirmado', 'Monto Pendiente'];
+            const periodoHeaders = ['Período', 'Moneda', 'Total Remesas', 'Confirmadas', 'Pendientes', 'Monto Total EUR', 'Monto Confirmado EUR', 'Monto Pendiente EUR'];
             const rows = reportData.porPeriodo.length > 0
                 ? reportData.porPeriodo.map(row => [
-                    formatPeriodoExcel(row.periodo), row.moneda || '—', row.total_remesas, row.confirmadas, row.pendientes,
+                    formatPeriodoExcel(row.periodo), 'EUR', row.total_remesas, row.confirmadas, row.pendientes,
                     row.monto_total, row.monto_confirmado, row.monto_pendiente
                   ])
-                : [['Sin datos para los filtros actuales', '—', 0, 0, 0, 0, 0, 0]];
+                : [['Sin datos para los filtros actuales', 'EUR', 0, 0, 0, 0, 0, 0]];
             const periodoData = [periodoHeaders, ...rows];
             const wsPeriodo = XLSX.utils.aoa_to_sheet(periodoData);
             XLSX.utils.book_append_sheet(wb, wsPeriodo, 'Por Período');
         }
         
-        // Hoja por cliente (siempre, aunque esté vacía)
+        // Hoja por cliente EUR
         {
-            const remeseroHeaders = ['Cliente', 'Moneda', 'Total Remesas', 'Confirmadas', 'Pendientes', 'Monto Total', 'Monto Confirmado', 'Monto Pendiente'];
+            const remeseroHeaders = ['Cliente', 'Moneda', 'Total Remesas', 'Confirmadas', 'Pendientes', 'Monto Total EUR', 'Monto Confirmado EUR', 'Monto Pendiente EUR'];
             const rows = reportData.porRemesero.length > 0
                 ? reportData.porRemesero.map(row => [
-                    row.nombre, row.moneda || '—', row.total_remesas, row.confirmadas, row.pendientes,
+                    row.nombre, 'EUR', row.total_remesas, row.confirmadas, row.pendientes,
                     row.monto_total, row.monto_confirmado, row.monto_pendiente
                   ])
-                : [['Sin datos para los filtros actuales', '—', 0, 0, 0, 0, 0, 0]];
+                : [['Sin datos para los filtros actuales', 'EUR', 0, 0, 0, 0, 0, 0]];
             const remeseroData = [remeseroHeaders, ...rows];
             const wsRemesero = XLSX.utils.aoa_to_sheet(remeseroData);
             XLSX.utils.book_append_sheet(wb, wsRemesero, 'Por Cliente');
@@ -310,15 +310,14 @@ const exportToPDF = () => {
         y += 10;
         
         doc.setFontSize(10);
-        const lineasResumen = reportData.porMoneda.length > 0
-            ? reportData.porMoneda.flatMap(m => [
-                `Total Recibido (${m.moneda}): ${formatCurrency(m.monto_total || 0, m.moneda)}`,
-                `Confirmado (${m.moneda}): ${formatCurrency(m.monto_confirmado || 0, m.moneda)}`,
-                `Pendiente (${m.moneda}): ${formatCurrency(m.monto_pendiente || 0, m.moneda)}`
-            ])
-            : [`Total Recibido: ${formatCurrency(reportData.resumen.monto_total || 0, 'CUP')}`,
-               `Confirmado: ${formatCurrency(reportData.resumen.monto_confirmado || 0, 'CUP')}`,
-               `Pendiente: ${formatCurrency(reportData.resumen.monto_pendiente || 0, 'CUP')}`];
+        const eur = (reportData.porMoneda || []).find(m => m.moneda === 'EUR') || reportData.porMoneda[0];
+        const lineasResumen = eur
+            ? [`Total Recibido (EUR): ${formatCurrency(eur.monto_total || 0, 'EUR')}`,
+               `Confirmado (EUR): ${formatCurrency(eur.monto_confirmado || 0, 'EUR')}`,
+               `Pendiente (EUR): ${formatCurrency(eur.monto_pendiente || 0, 'EUR')}`]
+            : [`Total Recibido: ${formatCurrency(reportData.resumen.monto_total || 0, 'EUR')}`,
+               `Confirmado: ${formatCurrency(reportData.resumen.monto_confirmado || 0, 'EUR')}`,
+               `Pendiente: ${formatCurrency(reportData.resumen.monto_pendiente || 0, 'EUR')}`];
         lineasResumen.forEach(linea => { doc.text(linea, 20, y); y += 7; });
         doc.text(`Total Remesas: ${reportData.resumen.total_remesas || 0}`, 20, y);
         y += 7;
@@ -338,18 +337,18 @@ const exportToPDF = () => {
             doc.text('Conf.', 88, y); doc.text('Pend.', 104, y); doc.text('Monto Total', 122, y);
             doc.text('Confirmado', 150, y); doc.text('Pendiente', 178, y);
             y += 6;
-            const filasPer = reportData.porPeriodo.length > 0 ? reportData.porPeriodo : [{ periodo: 'Sin datos', moneda: '—', total_remesas: 0, confirmadas: 0, pendientes: 0, monto_total: 0, monto_confirmado: 0, monto_pendiente: 0 }];
+            const filasPer = reportData.porPeriodo.length > 0 ? reportData.porPeriodo : [{ periodo: 'Sin datos', total_remesas: 0, confirmadas: 0, pendientes: 0, monto_total: 0, monto_confirmado: 0, monto_pendiente: 0 }];
             filasPer.forEach(row => {
                 if (y > 270) { doc.addPage(); y = 20; }
                 const periodo = doc.splitTextToSize(formatPeriodoExcel(row.periodo) || '', 42)[0];
                 doc.text(periodo, 20, y);
-                doc.text(row.moneda || '—', 50, y);
+                doc.text('EUR', 50, y);
                 doc.text(String(row.total_remesas || 0), 70, y);
                 doc.text(String(row.confirmadas || 0), 88, y);
                 doc.text(String(row.pendientes || 0), 104, y);
-                doc.text(formatCurrency(row.monto_total || 0, row.moneda), 122, y);
-                doc.text(formatCurrency(row.monto_confirmado || 0, row.moneda), 150, y);
-                doc.text(formatCurrency(row.monto_pendiente || 0, row.moneda), 178, y);
+                doc.text(formatCurrency(row.monto_total || 0, 'EUR'), 122, y);
+                doc.text(formatCurrency(row.monto_confirmado || 0, 'EUR'), 150, y);
+                doc.text(formatCurrency(row.monto_pendiente || 0, 'EUR'), 178, y);
                 y += 6;
             });
             y += 8;
@@ -372,7 +371,7 @@ const exportToPDF = () => {
             y += 7;
             
             // Datos
-            const filasCli = reportData.porRemesero.length > 0 ? reportData.porRemesero : [{ nombre: 'Sin datos para los filtros actuales', moneda: '—', total_remesas: 0, confirmadas: 0, pendientes: 0, monto_total: 0 }];
+            const filasCli = reportData.porRemesero.length > 0 ? reportData.porRemesero : [{ nombre: 'Sin datos para los filtros actuales', total_remesas: 0, confirmadas: 0, pendientes: 0, monto_total: 0 }];
             filasCli.forEach(row => {
                 if (y > 270) {
                     doc.addPage();
@@ -383,7 +382,7 @@ const exportToPDF = () => {
                 doc.text(String(row.total_remesas || 0), 75, y);
                 doc.text(String(row.confirmadas || 0), 95, y);
                 doc.text(String(row.pendientes || 0), 120, y);
-                doc.text(`${row.moneda || '—'} ${formatCurrency(row.monto_total || 0, row.moneda)}`, 145, y);
+                doc.text(`EUR ${formatCurrency(row.monto_total || 0, 'EUR')}`, 145, y);
                 y += 7;
             });
         }

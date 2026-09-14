@@ -199,8 +199,8 @@ const reportesService = {
 // UTILIDADES
 // ============================================
 
-// Formatear moneda (tolerante: un código inválido no rompe la página)
-const formatCurrency = (amount, currency = 'CUP') => {
+// Formatear moneda (EUR por defecto: moneda única del sistema)
+const formatCurrency = (amount, currency = 'EUR') => {
     const num = Number(amount);
     const safeAmount = Number.isFinite(num) ? num : 0;
     try {
@@ -307,16 +307,15 @@ const syncTasaForMoneda = (monedaSelect, tasaInput) => {
     }
 };
 
-// Formatear montos del desglose por moneda (por_moneda del resumen).
-// Una sola moneda: "USD 1,250.00". Varias: una línea por moneda.
-// Si está vacío, usa el monto CUP de respaldo.
+// Formatear montos EUR (otras monedas históricas se ignoran, libera espacio).
+// porMoneda ya viene filtrado a EUR desde el backend; si trae varias, se usa solo EUR.
+// CUP solo se muestra en tablas detalladas, nunca en tarjetas resumen.
 const formatMontosPorMoneda = (porMoneda, campo, respaldoCUP) => {
     if (porMoneda && porMoneda.length > 0) {
-        return porMoneda
-            .map(m => `${escapeHtml(m.moneda)} ${formatCurrency(m[campo] || 0, m.moneda)}`)
-            .join('<br>');
+        const eur = porMoneda.find(m => m.moneda === 'EUR') || porMoneda[0];
+        return formatCurrency(eur[campo] || 0, 'EUR');
     }
-    return formatCurrency(respaldoCUP || 0, 'CUP');
+    return formatCurrency(respaldoCUP || 0, 'EUR');
 };
 
 // ============================================
@@ -449,6 +448,24 @@ const getRecientes = () => {
     }
 };
 
+const removeReciente = (tipo, id) => {
+    try {
+        let list = JSON.parse(localStorage.getItem('recientes') || '[]');
+        const before = list.length;
+        list = list.filter(r => !(r.tipo === tipo && Number(r.id) === Number(id)));
+        if (list.length !== before) localStorage.setItem('recientes', JSON.stringify(list));
+    } catch (e) { /* no bloquear */ }
+};
+
+const removeRecientesByRemesero = (remeseroId) => {
+    try {
+        let list = JSON.parse(localStorage.getItem('recientes') || '[]');
+        const before = list.length;
+        list = list.filter(r => !(r.tipo === 'cliente' && Number(r.id) === Number(remeseroId)) && !(r.tipo === 'ordenante' && Number(r.remeseroId) === Number(remeseroId)));
+        if (list.length !== before) localStorage.setItem('recientes', JSON.stringify(list));
+    } catch (e) { /* no bloquear */ }
+};
+
 // Confirm dialog
 const showConfirm = (message) => {
     return new Promise((resolve) => {
@@ -474,6 +491,8 @@ window.getInitials = getInitials;
 window.escapeHtml = escapeHtml;
 window.pushReciente = pushReciente;
 window.getRecientes = getRecientes;
+window.removeReciente = removeReciente;
+window.removeRecientesByRemesero = removeRecientesByRemesero;
 window.formatMontosPorMoneda = formatMontosPorMoneda;
 window.syncTasaForMoneda = syncTasaForMoneda;
 window.showToast = showToast;

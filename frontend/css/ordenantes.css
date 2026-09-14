@@ -10,7 +10,7 @@
    ============================================ */
 .clientes-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
     gap: var(--space-lg, 1rem);
 }
 
@@ -141,7 +141,7 @@
 .stat-icon.yellow { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
 .stat-icon.green { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
 
-.stat-content { flex: 1; }
+.stat-content { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .stat-label { font-size: 0.8rem; color: var(--text-muted, #888); }
 .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--text-primary, #fff); }
 
@@ -150,7 +150,7 @@
    ============================================ */
 .ordenantes-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
     gap: var(--space-md, 0.75rem);
 }
 
@@ -161,6 +161,7 @@
     padding: var(--space-xl, 1.5rem);
     position: relative;
     transition: all 0.2s ease;
+    container-type: inline-size;
 }
 
 .ordenante-card:hover {
@@ -294,7 +295,7 @@
 .stat-badge.yellow { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
 
 .ordenante-monto {
-    font-size: 1.1rem;
+    font-size: clamp(1rem, 4cqi, 1.1rem);
     font-weight: 700;
     color: var(--text-primary, #fff);
 }
@@ -456,5 +457,11 @@
     
     .detalles-stats {
         grid-template-columns: 1fr;
+    }
+}
+
+@container (max-width: 320px) {
+    .ordenante-card .ordenante-name {
+        font-size: clamp(0.95rem, 4cqi, 1rem);
     }
 }

@@ -476,13 +476,14 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
 // ============================================
 router.get('/pendientes/count', authenticateToken, async (req, res) => {
     try {
-        // Solo pendientes de ordenantes/clientes activos
+        // Solo pendientes EUR de ordenantes/clientes activos
         const result = await db.query(
-            `SELECT COUNT(*) as total, COALESCE(SUM(rem.importe_cup), 0) as monto_total
+            `SELECT COUNT(*) as total, COALESCE(SUM(rem.importe), 0) as monto_total,
+                    COALESCE(SUM(rem.importe_cup), 0) as monto_total_cup
              FROM remesas rem
              JOIN ordenantes o ON rem.ordenante_id = o.id AND o.activo = 1
              JOIN remeseros r ON rem.remesero_id = r.id AND r.activo = 1
-             WHERE rem.estado = 'pendiente'`
+             WHERE rem.estado = 'pendiente' AND rem.moneda = 'EUR'`
         );
 
         res.json({ pendientes: result.rows[0] });

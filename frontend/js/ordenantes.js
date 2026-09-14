@@ -208,9 +208,9 @@ function renderOrdenantes() {
     grid.innerHTML = ordenantes.map(o => {
         try {
         const totalRemesas = o.total_remesas || 0;
-        const moneda = o.ultima_moneda || 'CUP';
-        const montoTotal = o.monto_total || 0;
-        const montoPendiente = o.monto_pendiente || 0;
+        const moneda = 'EUR';
+        const montoTotal = o.monto_total_moneda ?? o.monto_total ?? 0;
+        const montoPendiente = o.monto_pendiente_moneda ?? o.monto_pendiente ?? 0;
 
         return `
         <div class="ordenante-card" onclick="showDetalles(${o.id})">
@@ -238,9 +238,9 @@ function renderOrdenantes() {
             <div class="ordenante-name">${escapeHtml(o.nombre)}</div>
             <div class="ordenante-stats">
                 <span class="stat-badge blue"><i class="fas fa-receipt"></i> ${totalRemesas} depósito${totalRemesas !== 1 ? 's' : ''}</span>
-                <span class="stat-badge ${moneda === 'USD' || moneda === 'EUR' ? 'green' : 'orange'}">${escapeHtml(moneda)}</span>
+                <span class="stat-badge green">EUR</span>
             </div>
-            <div class="ordenante-monto ${montoPendiente > 0 ? 'pendiente' : ''}">${formatCurrency(o.monto_total_moneda ?? montoTotal, moneda)}</div>
+            <div class="ordenante-monto ${montoPendiente > 0 ? 'pendiente' : ''}">${formatCurrency(montoTotal, 'EUR')}</div>
         </div>
     `;
         } catch (e) {
@@ -254,28 +254,20 @@ function updateStats() {
     const total = ordenantes.length;
     const totalRemesas = ordenantes.reduce((sum, o) => sum + (o.total_remesas || 0), 0);
 
-    // Agrupar montos por moneda extranjera (no se suman monedas distintas)
-    const grupos = {};
-    ordenantes.forEach(o => {
-        const mon = o.ultima_moneda || 'CUP';
-        if (!grupos[mon]) grupos[mon] = { pendiente: 0, confirmado: 0 };
-        grupos[mon].pendiente += (o.monto_pendiente_moneda ?? o.monto_pendiente) || 0;
-        grupos[mon].confirmado += (o.monto_confirmado_moneda ?? o.monto_confirmado) || 0;
-    });
-    const lineas = (campo) => Object.keys(grupos).sort()
-        .map(mon => `${escapeHtml(mon)} ${formatCurrency(grupos[mon][campo], mon)}`)
-        .join('<br>');
-    const hayPendiente = Object.values(grupos).some(g => g.pendiente > 0);
+    // EUR único: otras monedas históricas se ignoran
+    const pendienteEUR = ordenantes.reduce((s, o) => s + ((o.monto_pendiente_moneda ?? o.monto_pendiente) || 0), 0);
+    const confirmadoEUR = ordenantes.reduce((s, o) => s + ((o.monto_confirmado_moneda ?? o.monto_confirmado) || 0), 0);
+    const hayPendiente = pendienteEUR > 0;
 
     document.getElementById('totalOrdenantes').textContent = total;
     document.getElementById('totalRemesas').textContent = totalRemesas;
-    document.getElementById('montoPendiente').innerHTML = lineas('pendiente');
-    document.getElementById('montoConfirmado').innerHTML = lineas('confirmado');
+    document.getElementById('montoPendiente').innerHTML = `EUR ${formatCurrency(pendienteEUR, 'EUR')}`;
+    document.getElementById('montoConfirmado').innerHTML = `EUR ${formatCurrency(confirmadoEUR, 'EUR')}`;
 
     document.getElementById('remeseroStats').innerHTML = `
         <span>${total} ordenante${total !== 1 ? 's' : ''}</span> &bull;
         <span>${totalRemesas} remesa${totalRemesas !== 1 ? 's' : ''}</span> &bull;
-        <span class="${hayPendiente ? 'text-yellow' : 'text-green'}">${lineas('pendiente')} pendiente</span>
+        <span class="${hayPendiente ? 'text-yellow' : 'text-green'}">EUR ${formatCurrency(pendienteEUR, 'EUR')} pendiente</span>
     `;
 }
 
@@ -438,12 +430,12 @@ async function showDetalles(ordenanteId) {
                     <div class="stat-mini-value">${estadisticas.total_depositos}</div>
                 </div>
                 <div class="stat-mini">
-                    <div class="stat-mini-label">Pendiente (${escapeHtml(estadisticas.ultima_moneda || 'CUP')})</div>
-                    <div class="stat-mini-value yellow">${formatCurrency(estadisticas.monto_pendiente_moneda ?? estadisticas.monto_pendiente, estadisticas.ultima_moneda || 'CUP')}</div>
+                    <div class="stat-mini-label">Pendiente (EUR)</div>
+                    <div class="stat-mini-value yellow">${formatCurrency(estadisticas.monto_pendiente_moneda ?? estadisticas.monto_pendiente, 'EUR')}</div>
                 </div>
                 <div class="stat-mini">
-                    <div class="stat-mini-label">Confirmado (${escapeHtml(estadisticas.ultima_moneda || 'CUP')})</div>
-                    <div class="stat-mini-value green">${formatCurrency(estadisticas.monto_confirmado_moneda ?? estadisticas.monto_confirmado, estadisticas.ultima_moneda || 'CUP')}</div>
+                    <div class="stat-mini-label">Confirmado (EUR)</div>
+                    <div class="stat-mini-value green">${formatCurrency(estadisticas.monto_confirmado_moneda ?? estadisticas.monto_confirmado, 'EUR')}</div>
                 </div>
             </div>
             <div class="detalles-depositos">
@@ -640,6 +632,7 @@ async function deleteOrdenante(ordenanteId) {
     if (confirmed) {
         try {
             await ordenantesService.delete(ordenanteId);
+            try { if (typeof removeReciente === 'function') removeReciente('ordenante', ordenanteId); } catch (e) {}
             showToast('success', 'Éxito', 'Ordenante eliminado exitosamente');
             loadOrdenantes();
         } catch (error) {

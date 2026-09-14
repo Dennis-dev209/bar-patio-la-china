@@ -18,16 +18,16 @@ router.get('/remesero/:remeseroId', authenticateToken, async (req, res) => {
                 o.nombre,
                 o.activo,
                 o.created_at,
-                COUNT(rem.id) as total_remesas,
-                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe_cup ELSE 0 END), 0) as monto_pendiente,
-                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe_cup ELSE 0 END), 0) as monto_confirmado,
-                COALESCE(SUM(rem.importe_cup), 0) as monto_total,
-                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' THEN rem.importe ELSE 0 END), 0) as monto_pendiente_moneda,
-                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' THEN rem.importe ELSE 0 END), 0) as monto_confirmado_moneda,
-                COALESCE(SUM(rem.importe), 0) as monto_total_moneda,
-                (SELECT rem2.moneda FROM remesas rem2 WHERE rem2.ordenante_id = o.id ORDER BY rem2.created_at DESC LIMIT 1) as ultima_moneda
+                COUNT(CASE WHEN rem.moneda = 'EUR' THEN rem.id END) as total_remesas,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' AND rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as monto_pendiente,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' AND rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as monto_confirmado,
+                COALESCE(SUM(CASE WHEN rem.moneda = 'EUR' THEN rem.importe_cup ELSE 0 END), 0) as monto_total,
+                COALESCE(SUM(CASE WHEN rem.estado = 'pendiente' AND rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as monto_pendiente_moneda,
+                COALESCE(SUM(CASE WHEN rem.estado = 'confirmado' AND rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as monto_confirmado_moneda,
+                COALESCE(SUM(CASE WHEN rem.moneda = 'EUR' THEN rem.importe ELSE 0 END), 0) as monto_total_moneda,
+                'EUR' as ultima_moneda
             FROM ordenantes o
-            LEFT JOIN remesas rem ON o.id = rem.ordenante_id
+            LEFT JOIN remesas rem ON o.id = rem.ordenante_id AND rem.moneda = 'EUR'
             WHERE o.remesero_id = ? AND o.activo = 1
             GROUP BY o.id, o.nombre, o.activo, o.created_at
             ORDER BY o.nombre ASC
@@ -142,17 +142,17 @@ router.get('/:id/detalles', authenticateToken, async (req, res) => {
 
         const statsResult = await db.query(`
             SELECT
-                COUNT(*) as total_depositos,
-                COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe_cup ELSE 0 END), 0) as monto_pendiente,
-                COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN importe_cup ELSE 0 END), 0) as monto_confirmado,
-                COALESCE(SUM(importe_cup), 0) as monto_total,
-                COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN importe ELSE 0 END), 0) as monto_pendiente_moneda,
-                COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN importe ELSE 0 END), 0) as monto_confirmado_moneda,
-                COALESCE(SUM(importe), 0) as monto_total_moneda,
-                (SELECT moneda FROM remesas WHERE ordenante_id = ? ORDER BY created_at DESC LIMIT 1) as ultima_moneda
+                COUNT(CASE WHEN moneda = 'EUR' THEN 1 END) as total_depositos,
+                COALESCE(SUM(CASE WHEN estado = 'pendiente' AND moneda = 'EUR' THEN importe_cup ELSE 0 END), 0) as monto_pendiente,
+                COALESCE(SUM(CASE WHEN estado = 'confirmado' AND moneda = 'EUR' THEN importe_cup ELSE 0 END), 0) as monto_confirmado,
+                COALESCE(SUM(CASE WHEN moneda = 'EUR' THEN importe_cup ELSE 0 END), 0) as monto_total,
+                COALESCE(SUM(CASE WHEN estado = 'pendiente' AND moneda = 'EUR' THEN importe ELSE 0 END), 0) as monto_pendiente_moneda,
+                COALESCE(SUM(CASE WHEN estado = 'confirmado' AND moneda = 'EUR' THEN importe ELSE 0 END), 0) as monto_confirmado_moneda,
+                COALESCE(SUM(CASE WHEN moneda = 'EUR' THEN importe ELSE 0 END), 0) as monto_total_moneda,
+                'EUR' as ultima_moneda
             FROM remesas
             WHERE ordenante_id = ?
-        `, [id, id]);
+        `, [id]);
 
         res.json({
             ordenante,
