@@ -251,9 +251,10 @@ const logout = () => {
 // CAMBIAR CONTRASEÑA
 // ============================================
 
-const changePassword = async () => {
-    // Por ahora, solo redirigir a una página de cambio de contraseña
-    showToast('info', 'Info', 'Función de cambio de contraseña en desarrollo');
+const changePassword = () => {
+    if (typeof openChangeOwnPasswordModal === 'function') openChangeOwnPasswordModal();
+    else if (window.openChangeOwnPasswordModal) window.openChangeOwnPasswordModal();
+    else showToast('error', 'Error', 'No se pudo abrir el cambio de contraseña');
 };
 
 // ============================================

@@ -316,6 +316,9 @@ router.put('/change-password', authenticateToken, async (req, res) => {
             [password_hash, req.user.id]
         );
 
+        // Auditoría: cambio de contraseña propia (sin exponer hashes)
+        logAudit(db, req.user.id, 'cambiar_propia_contraseña', 'usuarios', req.user.id, null, null, req.ip);
+
         res.json({ message: 'Contraseña actualizada exitosamente' });
 
     } catch (error) {

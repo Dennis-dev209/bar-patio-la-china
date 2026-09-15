@@ -231,17 +231,9 @@ const logout = () => {
 };
 
 const changePassword = () => {
-    const newPassword = prompt('Ingresa tu nueva contraseña:');
-    if (newPassword && newPassword.length >= 6) {
-        api.put('/auth/change-password', {
-            currentPassword: prompt('Confirma tu contraseña actual:'),
-            newPassword
-        }).then(() => {
-            showToast('success', 'Éxito', 'Contraseña actualizada');
-        }).catch(err => {
-            showToast('error', 'Error', err.message || 'No se pudo cambiar la contraseña');
-        });
-    }
+    if (typeof openChangeOwnPasswordModal === 'function') openChangeOwnPasswordModal();
+    else if (window.openChangeOwnPasswordModal) window.openChangeOwnPasswordModal();
+    else showToast('error', 'Error', 'No se pudo abrir el cambio de contraseña');
 };
 
 // ============================================

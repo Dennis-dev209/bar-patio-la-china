@@ -475,6 +475,108 @@ const showConfirm = (message) => {
 };
 
 // ============================================
+// CAMBIAR MI CONTRASEÑA (todas las páginas)
+// Modal inyectado: no requiere editar cada HTML.
+// Reutiliza .modal-overlay/.modal/.form-input/.btn existentes.
+// Backend: PUT /api/auth/change-password {currentPassword,newPassword}
+// ============================================
+
+const ensureChangeOwnPasswordModal = () => {
+    if (document.getElementById('changeOwnPasswordModal')) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'changeOwnPasswordModal';
+    overlay.innerHTML = `
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Cambiar mi contraseña</h3>
+                <button class="modal-close" onclick="closeChangeOwnPasswordModal()" type="button">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="changeOwnPasswordForm" onsubmit="saveOwnPassword(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Contraseña actual</label>
+                        <input type="password" id="changeOwnCurrent" class="form-input" required autocomplete="current-password" placeholder="Tu contraseña actual">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nueva contraseña</label>
+                        <input type="password" id="changeOwnNew" class="form-input" required minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Confirmar nueva contraseña</label>
+                        <input type="password" id="changeOwnConfirm" class="form-input" required minlength="8" autocomplete="new-password" placeholder="Repite la nueva contraseña">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeChangeOwnPasswordModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-key"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeChangeOwnPasswordModal();
+    });
+};
+
+const openChangeOwnPasswordModal = () => {
+    ensureChangeOwnPasswordModal();
+    const form = document.getElementById('changeOwnPasswordForm');
+    if (form) form.reset();
+    document.getElementById('changeOwnPasswordModal').classList.add('active');
+    setTimeout(() => {
+        const cur = document.getElementById('changeOwnCurrent');
+        if (cur) cur.focus();
+    }, 50);
+};
+
+const closeChangeOwnPasswordModal = () => {
+    const m = document.getElementById('changeOwnPasswordModal');
+    if (m) m.classList.remove('active');
+};
+
+const saveOwnPassword = async (e) => {
+    if (e) e.preventDefault();
+    const currentPassword = (document.getElementById('changeOwnCurrent') || {}).value || '';
+    const newPassword = (document.getElementById('changeOwnNew') || {}).value || '';
+    const confirmPassword = (document.getElementById('changeOwnConfirm') || {}).value || '';
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        showToast('warning', 'Atención', 'Completa los tres campos');
+        return;
+    }
+    if (newPassword.length < 8) {
+        showToast('warning', 'Atención', 'La nueva contraseña debe tener al menos 8 caracteres');
+        return;
+    }
+    if (newPassword !== confirmPassword) {
+        showToast('warning', 'Atención', 'La confirmación no coincide con la nueva contraseña');
+        return;
+    }
+    if (currentPassword === newPassword) {
+        showToast('warning', 'Atención', 'La nueva contraseña debe ser diferente a la actual');
+        return;
+    }
+
+    try {
+        await authService.changePassword(currentPassword, newPassword);
+        showToast('success', 'Éxito', 'Contraseña actualizada correctamente');
+        closeChangeOwnPasswordModal();
+    } catch (error) {
+        showToast('error', 'Error', error.message || 'No se pudo cambiar la contraseña');
+    }
+};
+
+// Compatibilidad: todas las páginas llaman a changePassword() desde el menú.
+// NOTA: no usar `const changePassword` aquí: cada página ya declara su propio
+// `const changePassword` y habría colisión ("already been declared") que rompería
+// el JS de la página. Solo se expone como propiedad de window (ver abajo).
+
+// ============================================
 // EXPORTAR
 // ============================================
 
@@ -497,3 +599,11 @@ window.formatMontosPorMoneda = formatMontosPorMoneda;
 window.syncTasaForMoneda = syncTasaForMoneda;
 window.showToast = showToast;
 window.showConfirm = showConfirm;
+window.openChangeOwnPasswordModal = openChangeOwnPasswordModal;
+window.closeChangeOwnPasswordModal = closeChangeOwnPasswordModal;
+window.saveOwnPassword = saveOwnPassword;
+// changePassword global por defecto (las páginas lo sobrescriben con su
+// delegación; si alguna página no lo define, este cubre el onclick).
+if (!window.changePassword) {
+    window.changePassword = () => openChangeOwnPasswordModal();
+}
