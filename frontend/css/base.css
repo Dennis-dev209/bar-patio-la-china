@@ -26,6 +26,7 @@ body {
     line-height: 1.6;
     color: var(--text-primary);
     background-color: var(--bg-primary);
+    min-height: 100vh;
     min-height: 100dvh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -71,6 +72,7 @@ a:hover {
 
 .app-container {
     display: flex;
+    min-height: 100vh;
     min-height: 100dvh;
 }
 
@@ -99,6 +101,7 @@ a:hover {
     transition: margin-left var(--transition-slow);
     display: flex;
     flex-direction: column;
+    min-height: 100vh;
     min-height: 100dvh;
 }
 
@@ -659,10 +662,15 @@ a:hover {
     justify-content: center;
     z-index: 1000;
     padding: 1rem;
+    overflow-y: auto;
 }
 
 .modal-overlay.active {
     display: flex;
+}
+
+.modal-overlay .modal {
+    margin: auto;
 }
 
 .modal-backdrop {
@@ -679,6 +687,14 @@ a:hover {
     opacity: 0;
     visibility: hidden;
     transition: all var(--transition-base);
+    /* Red de seguridad móvil: si el modal excede el viewport
+       (ej. footer apilado en ≤480px), se hace scroll en vez de recortar */
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.modal-backdrop .modal {
+    margin: auto;
 }
 
 .modal-backdrop.active {
@@ -692,6 +708,7 @@ a:hover {
     box-shadow: var(--shadow-xl);
     width: 90%;
     max-width: 500px;
+    max-height: 90vh;
     max-height: 90dvh;
     overflow: hidden;
     transform: scale(0.9);
@@ -737,6 +754,7 @@ a:hover {
 .modal-body {
     padding: var(--spacing-lg);
     overflow-y: auto;
+    max-height: calc(90vh - 140px);
     max-height: calc(90dvh - 140px);
 }
 
@@ -993,6 +1011,13 @@ a:hover {
 
     .modal-footer .btn {
         flex: 1 1 100%;
+    }
+
+    /* En ≤480px el footer se apila en 2 filas (~210px de header+footer),
+       no 140px: se reserva el espacio real para que Guardar no se recorte */
+    .modal-body {
+        max-height: calc(90vh - 210px);
+        max-height: calc(90dvh - 210px);
     }
 
     .card-footer {
