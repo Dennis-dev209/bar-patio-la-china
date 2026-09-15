@@ -643,6 +643,28 @@ a:hover {
    MODALES
    ============================================ */
 
+/* Overlay clásico (.modal-overlay + .active): lo usan los modales
+   inyectados por JS (ej. cambiar mi contraseña) y usuarios.html.
+   Va en base.css (compartido) porque antes solo existía en
+   usuarios.css y en el resto de páginas el modal salía roto/desplazado. */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
 .modal-backdrop {
     position: fixed;
     top: 0;
